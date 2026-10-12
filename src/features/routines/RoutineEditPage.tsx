@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarPlus, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { PageHeader } from '../../components/PageHeader'
 import { DEFAULT_SETTINGS, type PlannedExercise, type Routine } from '../../db/types'
@@ -60,6 +61,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
         return (
           <PlannedExerciseEditor
             key={`${pe.exerciseId}-${i}`}
+            storageKey={`routine.exercise.${routine?.id ?? 'new'}.${pe.exerciseId}`}
             value={pe}
             exercise={exercise}
             settings={settings}
@@ -80,8 +82,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
       </button>
 
       {routine && (
-        <section className="card stack">
-          <h2>日付に割り当てる</h2>
+        <CollapsibleCard storageKey="routine.assign" title="日付に割り当てる" titleClassName="">
           <input type="date" aria-label="割り当てる日" value={assignDate} onChange={(e) => setAssignDate(e.target.value)} />
           <button
             type="button"
@@ -108,7 +109,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
             <Trash2 aria-hidden="true" />
             このマイメニューを削除
           </button>
-        </section>
+        </CollapsibleCard>
       )}
 
       {picking && (

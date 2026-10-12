@@ -1,9 +1,12 @@
-import { ChevronDown, ChevronUp, Plus, Timer, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Timer, Trash2, X } from 'lucide-react'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { SetInputs } from '../../components/SetInputs'
 import { Stepper } from '../../components/Stepper'
 import type { Exercise, PlannedExercise, Settings } from '../../db/types'
 
 interface Props {
+  /** たたんだ状態を覚えておくための名前 */
+  storageKey: string
   value: PlannedExercise
   exercise: Exercise
   settings: Settings
@@ -14,27 +17,37 @@ interface Props {
   onRemove: () => void
 }
 
-export function PlannedExerciseEditor({ value, exercise, settings, isFirst, isLast, onChange, onMove, onRemove }: Props) {
+export function PlannedExerciseEditor({ storageKey, value, exercise, settings, isFirst, isLast, onChange, onMove, onRemove }: Props) {
   const updateSet = (index: number, changes: Partial<PlannedExercise['sets'][number]>) =>
     onChange({ ...value, sets: value.sets.map((s, i) => (i === index ? { ...s, ...changes } : s)) })
   return (
-    <section className="card exercise-card" aria-label={exercise.name}>
-      <div className="exercise-head">
-        <h2>{exercise.name}</h2>
-        {!isFirst && (
-          <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => onMove(-1)}>
-            <ChevronUp aria-hidden="true" />
+    <CollapsibleCard
+      storageKey={storageKey}
+      title={exercise.name}
+      titleClassName="exercise-title"
+      className="exercise-card"
+      bodyClassName=""
+      ariaLabel={exercise.name}
+      summary={`${value.sets.length}セット`}
+      actionsWhenCollapsed={false}
+      actions={
+        <>
+          {!isFirst && (
+            <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => onMove(-1)}>
+              <ArrowUp aria-hidden="true" />
+            </button>
+          )}
+          {!isLast && (
+            <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => onMove(1)}>
+              <ArrowDown aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" className="icon-btn danger" aria-label={`${exercise.name}を削除`} onClick={onRemove}>
+            <Trash2 aria-hidden="true" />
           </button>
-        )}
-        {!isLast && (
-          <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => onMove(1)}>
-            <ChevronDown aria-hidden="true" />
-          </button>
-        )}
-        <button type="button" className="icon-btn danger" aria-label={`${exercise.name}を削除`} onClick={onRemove}>
-          <Trash2 aria-hidden="true" />
-        </button>
-      </div>
+        </>
+      }
+    >
       <div className="rest-row">
         <span className="exercise-meta">
           <Timer aria-hidden="true" />
@@ -65,6 +78,6 @@ export function PlannedExerciseEditor({ value, exercise, settings, isFirst, isLa
         <Plus aria-hidden="true" />
         セット追加
       </button>
-    </section>
+    </CollapsibleCard>
   )
 }

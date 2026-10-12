@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { CircleCheck, Flame, ListChecks, Pause, Play, Plus, RotateCcw, Trophy, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { useSafeAction } from '../../components/Toast'
 import { db } from '../../db/db'
 import { formatDuration } from '../../lib/dates'
@@ -86,9 +87,14 @@ export function TodayWorkoutCard({ date }: { date: string }) {
       if (await run(() => deleteWorkout(workout.id))) timer.skip()
     }
     return (
-      <section className="card hero stack">
-        <div className="card-head">
-          {paused ? (
+      <CollapsibleCard
+        storageKey="home.workout"
+        className="hero"
+        label="今日のトレーニング"
+        titleAs="div"
+        titleClassName=""
+        title={
+          paused ? (
             <span className="eyebrow badge-paused">
               <Pause aria-hidden="true" />
               一時停止中
@@ -98,11 +104,14 @@ export function TodayWorkoutCard({ date }: { date: string }) {
               <span className="live-dot" aria-hidden="true" />
               トレーニング中
             </span>
-          )}
+          )
+        }
+        actions={
           <span className="muted num">
             {doneCount}/{total}種目
           </span>
-        </div>
+        }
+      >
         <h2 className="hero-title">{workout.title ?? 'トレーニング'}</h2>
         <div className="progress" aria-hidden="true">
           <span style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} />
@@ -121,18 +130,23 @@ export function TodayWorkoutCard({ date }: { date: string }) {
             キャンセル
           </button>
         </div>
-      </section>
+      </CollapsibleCard>
     )
   }
 
   return (
-    <section className="card hero stack">
-      <div className="card-head">
-        <h2 className="card-title">
+    <CollapsibleCard
+      storageKey="home.workout"
+      className="hero"
+      label="今日のトレーニング"
+      summary={summary ? `${summary.doneSets}セット完了` : plan?.title}
+      title={
+        <>
           <Flame aria-hidden="true" />
           今日のトレーニング
-        </h2>
-      </div>
+        </>
+      }
+    >
       {summary && (
         <div className="stack-sm">
           <p className="done-line">
@@ -215,6 +229,6 @@ export function TodayWorkoutCard({ date }: { date: string }) {
           }}
         />
       )}
-    </section>
+    </CollapsibleCard>
   )
 }

@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { DatabaseBackup, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { DEFAULT_SETTINGS } from '../../db/types'
 import { backupFileName, exportBackup, importBackup, parseBackup, readFileText, shareOrDownload } from '../../lib/backup'
@@ -42,11 +43,16 @@ export function SettingsPage() {
   return (
     <div className="page">
       <h1>設定</h1>
-      <section className="card stack">
-        <h2 className="card-title">
-          <SlidersHorizontal aria-hidden="true" />
-          入力
-        </h2>
+      <CollapsibleCard
+        storageKey="settings.input"
+        label="入力"
+        title={
+          <>
+            <SlidersHorizontal aria-hidden="true" />
+            入力
+          </>
+        }
+      >
         <label className="field">
           重量の刻み幅
           <select value={settings.weightStep} onChange={(e) => run(() => saveSettings({ weightStep: Number(e.target.value) }))}>
@@ -67,13 +73,18 @@ export function SettingsPage() {
             ))}
           </select>
         </label>
-      </section>
+      </CollapsibleCard>
 
-      <section className="card stack">
-        <h2 className="card-title">
-          <DatabaseBackup aria-hidden="true" />
-          バックアップ
-        </h2>
+      <CollapsibleCard
+        storageKey="settings.backup"
+        label="バックアップ"
+        title={
+          <>
+            <DatabaseBackup aria-hidden="true" />
+            バックアップ
+          </>
+        }
+      >
         <p className="muted">データはこのiPhoneの中にだけ保存されています。機種変更に備えて、ときどき書き出してください。</p>
         {usage && <p className="muted">{usage}</p>}
         <button type="button" className="btn btn-primary btn-block" onClick={exportData}>
@@ -91,17 +102,24 @@ export function SettingsPage() {
             }}
           />
         </label>
-      </section>
+      </CollapsibleCard>
 
-      <section className="card stack-sm">
-        <h2 className="card-title">
-          <Info aria-hidden="true" />
-          アプリについて
-        </h2>
+      <CollapsibleCard
+        storageKey="settings.about"
+        label="アプリについて"
+        summary={`v${APP_VERSION}`}
+        bodyClassName="stack-sm"
+        title={
+          <>
+            <Info aria-hidden="true" />
+            アプリについて
+          </>
+        }
+      >
         <p>バージョン {APP_VERSION}</p>
         <p className="muted">更新 {formatBuildTime(BUILD_TIME)}</p>
         {COMMIT && <p className="muted">コミット {COMMIT}</p>}
-      </section>
+      </CollapsibleCard>
     </div>
   )
 }

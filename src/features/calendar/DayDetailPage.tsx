@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { CalendarX2, Check } from 'lucide-react'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { EmptyState } from '../../components/EmptyState'
 import { PageHeader } from '../../components/PageHeader'
 import { FACES } from '../../components/RatingPicker'
@@ -48,11 +49,14 @@ export function DayDetailPage() {
         const volume = totalVolume(exercises.map((e) => ({ logType: e.exercise.logType, sets: e.sets })))
         const minutes = workout.finishedAt !== undefined ? Math.round(workoutDurationMs(workout) / 60000) : undefined
         return (
-          <section key={workout.id} className="card stack">
-            <div className="row between">
-              <h2>{workout.title ?? 'トレーニング'}</h2>
-              <Link to={`/workout/${workout.id}`}>{workout.finishedAt === undefined ? '続ける' : '編集'}</Link>
-            </div>
+          <CollapsibleCard
+            key={workout.id}
+            storageKey={`day.workout.${workout.id}`}
+            title={workout.title ?? 'トレーニング'}
+            titleClassName=""
+            summary={minutes !== undefined ? `${minutes}分・${doneCount}セット` : `${doneCount}セット`}
+            actions={<Link to={`/workout/${workout.id}`}>{workout.finishedAt === undefined ? '続ける' : '編集'}</Link>}
+          >
             <p className="day-stats">
               {minutes !== undefined && <span>{minutes}分</span>}
               <span>{doneCount}セット</span>
@@ -100,24 +104,30 @@ export function DayDetailPage() {
               </p>
             )}
             {workout.note && <p className="muted">メモ：{workout.note}</p>}
-          </section>
+          </CollapsibleCard>
         )
       })}
 
-      <section className="card stack">
-        <div className="row between">
-          <h2>体</h2>
-          <Link to={`/body?date=${date}`}>{body ? '編集' : '記録する'}</Link>
-        </div>
+      <CollapsibleCard
+        storageKey="day.body"
+        title="体"
+        titleClassName=""
+        summary={body?.weightKg !== undefined ? `${body.weightKg}kg` : undefined}
+        actions={<Link to={`/body?date=${date}`}>{body ? '編集' : '記録する'}</Link>}
+      >
         {body?.weightKg !== undefined && <p>体重 {body.weightKg}kg</p>}
         {body?.bodyFatPct !== undefined && <p>体脂肪率 {body.bodyFatPct}%</p>}
         {body?.photo && <img className="photo" src={body.photo} alt={`${formatDateJa(date)}の写真`} />}
-      </section>
+      </CollapsibleCard>
 
-      <section className="card stack">
+      <CollapsibleCard
+        storageKey="day.plan"
+        title={plan ? `予定：${plan.title}` : '予定を入れる'}
+        titleClassName=""
+        summary={plan ? `${planNames.length}種目` : undefined}
+      >
         {plan ? (
           <>
-            <h2>予定：{plan.title}</h2>
             <ul className="plan-list">
               {planNames.map((name, i) => (
                 <li key={i}>
@@ -131,7 +141,6 @@ export function DayDetailPage() {
           </>
         ) : (
           <>
-            <h2>予定を入れる</h2>
             <label className="field">
               マイメニュー
               <select value={routineId} onChange={(e) => setRoutineId(e.target.value)}>
@@ -148,7 +157,7 @@ export function DayDetailPage() {
             </button>
           </>
         )}
-      </section>
+      </CollapsibleCard>
     </div>
   )
 }

@@ -429,7 +429,6 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .plan-box { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3) var(--s-3) var(--s-1); border-radius: var(--r-md); background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); }
 .plan-title { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
 .weight-card { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
-.weight-card .card-title svg { width: 14px; height: 14px; }
 .row-label { font-weight: 700; }
 
 /* ===== 戻るボタン ===== */
@@ -461,3 +460,12 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 
 /* ===== アプリのバージョン（ホームの下） ===== */
 .app-version { margin-top: var(--s-2); text-align: center; color: var(--faint); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+
+/* ===== たためるカード ===== */
+.collapsible-head { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; margin: -6px -8px -6px 0; }
+.collapsible-title { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.collapsible-summary { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--fs-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
+.collapse-btn { width: 44px; height: 44px; }
+.collapse-btn svg { transition: transform 0.2s var(--ease); }
+.collapse-btn[aria-expanded='true'] svg { transform: rotate(180deg); }
+.card.collapsible > .collapsible-body { margin-top: var(--s-3); }

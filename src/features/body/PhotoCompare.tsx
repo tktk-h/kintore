@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Images } from 'lucide-react'
 import { useState } from 'react'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { EmptyState } from '../../components/EmptyState'
 import { formatDateJa } from '../../lib/dates'
 import { listPhotoLogs } from '../../repo/body'
@@ -12,12 +13,11 @@ export function PhotoCompare() {
   if (!logs) return null
   if (logs.length < 2) {
     return (
-      <section className="card">
-        <h2>写真の比較</h2>
+      <CollapsibleCard storageKey="body.photos" title="写真の比較" titleClassName="" bodyClassName="">
         <EmptyState icon={Images}>
           <p>写真が2枚以上になると比較できます</p>
         </EmptyState>
-      </section>
+      </CollapsibleCard>
     )
   }
   const leftLog = logs.find((l) => l.date === left) ?? logs[0]
@@ -32,14 +32,13 @@ export function PhotoCompare() {
     </select>
   )
   return (
-    <section className="card stack">
-      <h2>写真の比較</h2>
+    <CollapsibleCard storageKey="body.photos" title="写真の比較" titleClassName="">
       <div className="photos">
         {picker('左の写真', leftLog.date, setLeft)}
         {picker('右の写真', rightLog.date, setRight)}
         <img src={leftLog.photo} alt={`${formatDateJa(leftLog.date)}の写真`} />
         <img src={rightLog.photo} alt={`${formatDateJa(rightLog.date)}の写真`} />
       </div>
-    </section>
+    </CollapsibleCard>
   )
 }

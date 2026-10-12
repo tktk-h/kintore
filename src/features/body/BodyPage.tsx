@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { Stepper } from '../../components/Stepper'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { PageHeader } from '../../components/PageHeader'
@@ -53,7 +54,7 @@ function BodyForm({ date, log, latest }: FormProps) {
   }
 
   return (
-    <section className="card stack">
+    <CollapsibleCard storageKey="body.form" title="体重・体脂肪率・写真" summary={`${weight}kg`}>
       <div className="row between">
         <span className="row-label">体重</span>
         <Stepper label="体重" unit="kg" step={0.1} value={weight} onChange={setWeight} />
@@ -98,6 +99,6 @@ function BodyForm({ date, log, latest }: FormProps) {
       <button type="button" className="btn btn-primary btn-block" onClick={save}>
         保存
       </button>
-    </section>
+    </CollapsibleCard>
   )
 }

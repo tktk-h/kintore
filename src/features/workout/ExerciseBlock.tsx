@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronDown, ChevronUp, NotebookPen, Plus, Timer, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, NotebookPen, Plus, Timer, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { useSafeAction } from '../../components/Toast'
 import type { Settings } from '../../db/types'
 import { formatSets } from '../../lib/workoutStats'
@@ -35,33 +36,43 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
   const [noteOpen, setNoteOpen] = useState(false)
 
   return (
-    <section className="card exercise-card" aria-label={exercise.name}>
-      <div className="exercise-head">
-        <h2>{exercise.name}</h2>
-        <button type="button" className="icon-btn" aria-label={`${exercise.name}のメモ`} onClick={() => setNoteOpen(true)}>
-          <NotebookPen aria-hidden="true" />
-        </button>
-        {!isFirst && (
-          <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => run(() => moveExercise(we.id, -1))}>
-            <ChevronUp aria-hidden="true" />
+    <CollapsibleCard
+      storageKey={`workout.exercise.${we.id}`}
+      title={exercise.name}
+      titleClassName="exercise-title"
+      className="exercise-card"
+      bodyClassName=""
+      ariaLabel={exercise.name}
+      summary={`${sets.filter((s) => s.done).length}/${sets.length}セット`}
+      actionsWhenCollapsed={false}
+      actions={
+        <>
+          <button type="button" className="icon-btn" aria-label={`${exercise.name}のメモ`} onClick={() => setNoteOpen(true)}>
+            <NotebookPen aria-hidden="true" />
           </button>
-        )}
-        {!isLast && (
-          <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => run(() => moveExercise(we.id, 1))}>
-            <ChevronDown aria-hidden="true" />
+          {!isFirst && (
+            <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => run(() => moveExercise(we.id, -1))}>
+              <ArrowUp aria-hidden="true" />
+            </button>
+          )}
+          {!isLast && (
+            <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => run(() => moveExercise(we.id, 1))}>
+              <ArrowDown aria-hidden="true" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="icon-btn danger"
+            aria-label={`${exercise.name}を削除`}
+            onClick={() => {
+              if (window.confirm(`${exercise.name}を削除しますか？`)) void run(() => removeExerciseFromWorkout(we.id))
+            }}
+          >
+            <Trash2 aria-hidden="true" />
           </button>
-        )}
-        <button
-          type="button"
-          className="icon-btn danger"
-          aria-label={`${exercise.name}を削除`}
-          onClick={() => {
-            if (window.confirm(`${exercise.name}を削除しますか？`)) void run(() => removeExerciseFromWorkout(we.id))
-          }}
-        >
-          <Trash2 aria-hidden="true" />
-        </button>
-      </div>
+        </>
+      }
+    >
       <p className="exercise-meta">
         <Timer aria-hidden="true" />
         <span>
@@ -105,6 +116,6 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
           }}
         />
       )}
-    </section>
+    </CollapsibleCard>
   )
 }

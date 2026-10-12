@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { BODY_PART_COLORS, BODY_PART_LABELS, BODY_PARTS } from '../../db/types'
 import { formatDateJa, monthGrid, WEEKDAYS } from '../../lib/dates'
 import { useToday } from '../../lib/useToday'
@@ -22,7 +23,17 @@ export function Calendar() {
     })
 
   return (
-    <section className="card">
+    <CollapsibleCard
+      storageKey="home.calendar"
+      label="カレンダー"
+      bodyClassName=""
+      title={
+        <>
+          <CalendarDays aria-hidden="true" />
+          カレンダー
+        </>
+      }
+    >
       <div className="calendar-head">
         <button type="button" aria-label="前の月" onClick={() => shift(-1)}>
           <ChevronLeft aria-hidden="true" />
@@ -74,6 +85,6 @@ export function Calendar() {
           予定
         </span>
       </div>
-    </section>
+    </CollapsibleCard>
   )
 }
