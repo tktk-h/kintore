@@ -3,6 +3,7 @@ import { Flag, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useSafeAction, useToast } from '../../components/Toast'
+import { PageHeader } from '../../components/PageHeader'
 import { DEFAULT_SETTINGS } from '../../db/types'
 import { formatDateJa } from '../../lib/dates'
 import { getSettings } from '../../repo/settings'
@@ -43,10 +44,7 @@ export function WorkoutPage() {
 
   return (
     <div className="page">
-      <header className="page-title">
-        <p className="eyebrow">{formatDateJa(workout.date)}</p>
-        <h1>{workout.title ?? 'トレーニング'}</h1>
-      </header>
+      <PageHeader backTo="/" eyebrow={formatDateJa(workout.date)} title={workout.title ?? 'トレーニング'} />
       <RestTimerDisplay variant={active ? 'big' : 'bar'} />
       {exercises.map((e, i) => (
         <ExerciseBlock

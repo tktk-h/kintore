@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Stepper } from '../../components/Stepper'
 import { useSafeAction, useToast } from '../../components/Toast'
+import { PageHeader } from '../../components/PageHeader'
 import type { BodyLog } from '../../db/types'
 import { formatDateJa, todayKey } from '../../lib/dates'
 import { resizeImage } from '../../lib/image'
@@ -18,10 +19,7 @@ export function BodyPage() {
 
   return (
     <div className="page">
-      <header className="page-title">
-        <p className="eyebrow">{formatDateJa(date)}</p>
-        <h1>体の記録</h1>
-      </header>
+      <PageHeader backTo={params.has('date') ? '/' : undefined} eyebrow={formatDateJa(date)} title="体の記録" />
       {log !== undefined && latest !== undefined && (
         <BodyForm key={`${date}-${log?.id ?? 'new'}`} date={date} log={log} latest={latest} />
       )}

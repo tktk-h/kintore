@@ -12,6 +12,7 @@ import {
   type Equipment,
   type LogType,
 } from '../../db/types'
+import { PageHeader } from '../../components/PageHeader'
 import { createExercise, getExercise, updateExercise, type ExerciseInput } from '../../repo/exercises'
 
 const EMPTY: ExerciseInput = { name: '', bodyPart: 'chest', equipment: 'barbell', logType: 'weight_reps', defaultRestSec: 90 }
@@ -44,7 +45,7 @@ function ExerciseForm({ id, initial }: { id?: string; initial: ExerciseInput }) 
 
   return (
     <div className="page">
-      <h1>{id ? '種目を編集' : '種目を追加'}</h1>
+      <PageHeader backTo="/exercises" title={id ? '種目を編集' : '種目を追加'} />
       <label className="field">
         名前
         <input type="text" value={form.name} onChange={(e) => set({ name: e.target.value })} />

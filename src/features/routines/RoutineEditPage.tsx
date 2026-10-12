@@ -3,6 +3,7 @@ import { CalendarPlus, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useSafeAction, useToast } from '../../components/Toast'
+import { PageHeader } from '../../components/PageHeader'
 import { DEFAULT_SETTINGS, type PlannedExercise, type Routine } from '../../db/types'
 import { todayKey } from '../../lib/dates'
 import { listExercises } from '../../repo/exercises'
@@ -48,7 +49,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
 
   return (
     <div className="page">
-      <h1>{routine ? 'マイメニューを編集' : 'マイメニューを作成'}</h1>
+      <PageHeader backTo="/routines" title={routine ? 'マイメニューを編集' : 'マイメニューを作成'} />
       <label className="field">
         名前
         <input type="text" value={name} placeholder="例：胸の日" onChange={(e) => setName(e.target.value)} />
