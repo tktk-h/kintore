@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { Stepper } from './Stepper'
@@ -50,5 +50,19 @@ describe('Stepper（保存待ちの間）', () => {
     await userEvent.click(screen.getByRole('button', { name: '重量を増やす' }))
     rerender(<Stepper label="重量" unit="kg" value={80} step={2.5} onChange={onChange} />)
     expect(screen.getByRole('button', { name: '重量 80kg' })).toBeInTheDocument()
+  })
+})
+
+describe('Stepper（再描画前の連打）', () => {
+  it('同じタイミングで3回押しても3回分増える', async () => {
+    const onChange = vi.fn()
+    render(<Stepper label="重量" unit="kg" value={20} step={2.5} onChange={onChange} />)
+    const inc = screen.getByRole('button', { name: '重量を増やす' })
+    act(() => {
+      inc.click()
+      inc.click()
+      inc.click()
+    })
+    expect(onChange.mock.calls.map((c) => c[0])).toEqual([22.5, 25, 27.5])
   })
 })
