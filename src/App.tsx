@@ -6,6 +6,8 @@ import { DayDetailPage } from './features/calendar/DayDetailPage'
 import { ExerciseEditPage } from './features/exercises/ExerciseEditPage'
 import { ExerciseListPage } from './features/exercises/ExerciseListPage'
 import { HomePage } from './features/home/HomePage'
+import { RoutineEditPage } from './features/routines/RoutineEditPage'
+import { RoutineListPage } from './features/routines/RoutineListPage'
 import { RestTimerProvider } from './features/timer/RestTimerContext'
 import { WorkoutPage } from './features/workout/WorkoutPage'
 
@@ -23,6 +25,9 @@ export function App() {
               <Route path="workout/:id" element={<WorkoutPage />} />
               <Route path="day/:date" element={<DayDetailPage />} />
               <Route path="body" element={<BodyPage />} />
+              <Route path="routines" element={<RoutineListPage />} />
+              <Route path="routines/new" element={<RoutineEditPage />} />
+              <Route path="routines/:id" element={<RoutineEditPage />} />
             </Route>
           </Routes>
         </HashRouter>
