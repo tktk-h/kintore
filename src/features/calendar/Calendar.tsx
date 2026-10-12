@@ -2,7 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { BODY_PART_COLORS, BODY_PART_LABELS, BODY_PARTS } from '../../db/types'
-import { formatDateJa, monthGrid, todayKey, WEEKDAYS } from '../../lib/dates'
+import { formatDateJa, monthGrid, WEEKDAYS } from '../../lib/dates'
+import { useToday } from '../../lib/useToday'
 import { getMonthInfo } from '../../repo/calendar'
 
 export function Calendar() {
@@ -12,7 +13,7 @@ export function Calendar() {
   })
   const info = useLiveQuery(() => getMonthInfo(ym.y, ym.m), [ym.y, ym.m]) ?? {}
   const navigate = useNavigate()
-  const today = todayKey()
+  const today = useToday()
   const shift = (delta: number) =>
     setYm(({ y, m }) => {
       const d = new Date(y, m + delta, 1)
