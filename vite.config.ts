@@ -1,10 +1,33 @@
 /// <reference types="vitest/config" />
+import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// @types/node を入れていないので、使う分だけ型を書く
+declare const process: { env: Record<string, string | undefined> }
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
+
+/** ビルドしたコミット（短い形）。GitHub Actions では GITHUB_SHA、手元では git から。分からなければ空 */
+function gitCommit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7)
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim()
+  } catch {
+    return ''
+  }
+}
+
 export default defineConfig({
   base: './',
+  // アプリが更新されたか分かるように、バージョンとビルド日時を埋め込む（テストでも使える）
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __COMMIT__: JSON.stringify(gitCommit()),
+  },
   plugins: [
     react(),
     VitePWA({

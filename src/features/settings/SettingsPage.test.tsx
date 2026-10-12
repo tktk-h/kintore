@@ -31,6 +31,13 @@ describe('SettingsPage', () => {
     expect(window.confirm).toHaveBeenCalled()
   })
 
+  it('アプリのバージョンと更新日時を出す', async () => {
+    open()
+    expect(await screen.findByRole('heading', { name: 'アプリについて' })).toBeInTheDocument()
+    expect(screen.getByText('バージョン 0.2.0')).toBeInTheDocument()
+    expect(screen.getByText(/^更新 \d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/)).toBeInTheDocument()
+  })
+
   it('壊れたファイルは読み込まずに知らせる', async () => {
     open()
     const file = new File(['broken'], 'backup.json', { type: 'application/json' })

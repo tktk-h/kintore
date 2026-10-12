@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { DatabaseBackup, Download, SlidersHorizontal } from 'lucide-react'
+import { DatabaseBackup, Download, Info, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { DEFAULT_SETTINGS } from '../../db/types'
 import { backupFileName, exportBackup, importBackup, parseBackup, readFileText, shareOrDownload } from '../../lib/backup'
+import { APP_VERSION, BUILD_TIME, COMMIT, formatBuildTime } from '../../lib/version'
 import { getSettings, saveSettings } from '../../repo/settings'
 
 const WEIGHT_STEPS = [0.5, 1, 1.25, 2.5, 5]
@@ -90,6 +91,16 @@ export function SettingsPage() {
             }}
           />
         </label>
+      </section>
+
+      <section className="card stack-sm">
+        <h2 className="card-title">
+          <Info aria-hidden="true" />
+          アプリについて
+        </h2>
+        <p>バージョン {APP_VERSION}</p>
+        <p className="muted">更新 {formatBuildTime(BUILD_TIME)}</p>
+        {COMMIT && <p className="muted">コミット {COMMIT}</p>}
       </section>
     </div>
   )

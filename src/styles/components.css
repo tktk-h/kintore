@@ -458,3 +458,6 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 /* 横に2つ並べるボタン */
 .btn-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
 .btn-pair .btn { min-width: 0; padding: 0 var(--s-2); }
+
+/* ===== アプリのバージョン（ホームの下） ===== */
+.app-version { margin-top: var(--s-2); text-align: center; color: var(--faint); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
