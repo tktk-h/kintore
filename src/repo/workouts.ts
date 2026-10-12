@@ -25,6 +25,7 @@ export interface WorkoutDetail {
   exercises: WorkoutExerciseDetail[]
 }
 
+/** condition / satisfaction / note は undefined を渡すとその項目が消える */
 export type FinishResult = Pick<Workout, 'condition' | 'satisfaction' | 'note'>
 
 export interface StartWorkoutOptions {
@@ -115,7 +116,7 @@ export async function startWorkout(opts: StartWorkoutOptions): Promise<string> {
 export async function addExerciseToWorkout(workoutId: string, exerciseId: string): Promise<void> {
   const exercise = await db.exercises.get(exerciseId)
   const workout = await db.workouts.get(workoutId)
-  if (!exercise || !workout) throw new Error('種目またはトレーニングが見つかりません')
+  if (!alive(exercise) || !alive(workout)) throw new Error('種目またはトレーニングが見つかりません')
   const values = await suggestSets(exercise, workout.startedAt)
   const existing = (await db.workoutExercises.where('workoutId').equals(workoutId).toArray()).filter((we) => !we.deleted)
   const order = existing.length ? Math.max(...existing.map((we) => we.order)) + 1 : 0
@@ -130,7 +131,12 @@ export async function finishWorkout(id: string, result: FinishResult): Promise<v
 }
 
 export async function deleteWorkout(id: string): Promise<void> {
-  await db.workouts.update(id, { deleted: true, updatedAt: Date.now() })
+  const now = Date.now()
+  await db.transaction('rw', [db.workouts, db.workoutExercises, db.sets], async () => {
+    await db.workouts.update(id, { deleted: true, updatedAt: now })
+    await db.workoutExercises.where('workoutId').equals(id).modify({ deleted: true, updatedAt: now })
+    await db.sets.where('workoutId').equals(id).modify({ deleted: true, updatedAt: now })
+  })
 }
 
 /** 実施したトレーニングをメニューの形にする（完了セットがあればその値、なければ全セット） */

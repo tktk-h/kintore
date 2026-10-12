@@ -44,26 +44,30 @@ export async function deleteSet(id: string): Promise<void> {
 }
 
 export async function removeExerciseFromWorkout(workoutExerciseId: string): Promise<void> {
-  await db.workoutExercises.update(workoutExerciseId, { deleted: true, ...touch() })
+  await db.transaction('rw', [db.workoutExercises, db.sets], async () => {
+    await db.workoutExercises.update(workoutExerciseId, { deleted: true, ...touch() })
+    await db.sets.where('workoutExerciseId').equals(workoutExerciseId).modify({ deleted: true, ...touch() })
+  })
 }
 
 export async function moveExercise(workoutExerciseId: string, direction: -1 | 1): Promise<void> {
-  const we = await db.workoutExercises.get(workoutExerciseId)
-  if (!we) return
-  const list = (await db.workoutExercises.where('workoutId').equals(we.workoutId).toArray())
-    .filter((e) => !e.deleted)
-    .sort(byOrder)
-  const other = list[list.findIndex((e) => e.id === workoutExerciseId) + direction]
-  if (!other) return
   await db.transaction('rw', db.workoutExercises, async () => {
+    const we = await db.workoutExercises.get(workoutExerciseId)
+    if (!we) return
+    const list = (await db.workoutExercises.where('workoutId').equals(we.workoutId).toArray())
+      .filter((e) => !e.deleted)
+      .sort(byOrder)
+    const other = list[list.findIndex((e) => e.id === workoutExerciseId) + direction]
+    if (!other) return
     await db.workoutExercises.update(we.id, { order: other.order, ...touch() })
     await db.workoutExercises.update(other.id, { order: we.order, ...touch() })
   })
 }
 
+/** 両方の項目を必ず渡す。undefined を渡した項目は消える */
 export async function updateExerciseNote(
   workoutExerciseId: string,
-  changes: { effort?: Rating; note?: string },
+  changes: { effort: Rating | undefined; note: string | undefined },
 ): Promise<void> {
   await db.workoutExercises.update(workoutExerciseId, { effort: changes.effort, note: changes.note, ...touch() })
 }

@@ -21,9 +21,11 @@ export async function getLatestBodyValues(date: string): Promise<{ weightKg?: nu
 
 /** input に含めた項目だけ更新する（undefined を明示的に渡すとその項目を消す） */
 export async function saveBodyLog(date: string, input: BodyInput): Promise<void> {
-  const existing = await getBodyLog(date)
-  if (existing) await db.bodyLogs.update(existing.id, { ...input, updatedAt: Date.now() })
-  else await db.bodyLogs.add(newRecord<BodyLog>({ date, ...input }))
+  await db.transaction('rw', db.bodyLogs, async () => {
+    const existing = await getBodyLog(date)
+    if (existing) await db.bodyLogs.update(existing.id, { ...input, updatedAt: Date.now() })
+    else await db.bodyLogs.add(newRecord<BodyLog>({ date, ...input }))
+  })
 }
 
 export async function listPhotoLogs(): Promise<BodyLog[]> {

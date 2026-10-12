@@ -13,6 +13,29 @@ const TABLES = [
 ] as const
 type TableName = (typeof TABLES)[number]
 
+type Row = Record<string, unknown>
+const isObject = (v: unknown): v is Row => typeof v === 'object' && v !== null
+const str = (v: unknown) => typeof v === 'string'
+const num = (v: unknown) => typeof v === 'number'
+const bool = (v: unknown) => typeof v === 'boolean'
+const plannedList = (v: unknown) =>
+  Array.isArray(v) &&
+  v.every((e) => isObject(e) && str(e.exerciseId) && num(e.restSec) && Array.isArray(e.sets))
+
+/** 表ごとの最低限の形（deleted は settings 以外すべてに必要） */
+const CHECKS: Record<TableName, (r: Row) => boolean> = {
+  exercises: (r) => bool(r.deleted) && str(r.name) && str(r.bodyPart) && str(r.logType),
+  routines: (r) => bool(r.deleted) && plannedList(r.exercises),
+  plannedWorkouts: (r) => bool(r.deleted) && str(r.date) && plannedList(r.exercises),
+  workouts: (r) => bool(r.deleted) && str(r.date) && num(r.startedAt),
+  workoutExercises: (r) =>
+    bool(r.deleted) && str(r.workoutId) && str(r.exerciseId) && num(r.order) && num(r.restSec),
+  sets: (r) =>
+    bool(r.deleted) && str(r.workoutId) && str(r.workoutExerciseId) && num(r.order) && bool(r.done),
+  bodyLogs: (r) => bool(r.deleted) && str(r.date),
+  settings: (r) => r.id === 'app' && num(r.weightStep) && num(r.repStep),
+}
+
 export interface BackupFile {
   app: 'kintore'
   version: 1
@@ -35,14 +58,15 @@ export function parseBackup(text: string): BackupFile {
     throw new Error('バックアップファイルを読み込めませんでした')
   }
   const file = parsed as Partial<BackupFile> | null
-  if (!file || file.app !== 'kintore' || file.version !== 1 || typeof file.data !== 'object' || file.data === null) {
+  if (file && file.app === 'kintore' && file.version !== 1) {
+    throw new Error('新しいバージョンのアプリで作られたバックアップです')
+  }
+  if (!file || file.app !== 'kintore' || typeof file.data !== 'object' || file.data === null) {
     throw new Error('このアプリのバックアップファイルではありません')
   }
   for (const t of TABLES) {
     const rows = (file.data as Record<string, unknown>)[t]
-    const ok =
-      Array.isArray(rows) &&
-      rows.every((r) => typeof r === 'object' && r !== null && typeof (r as { id?: unknown }).id === 'string')
+    const ok = Array.isArray(rows) && rows.every((r) => isObject(r) && typeof r.id === 'string' && CHECKS[t](r))
     if (!ok) throw new Error(`バックアップファイルが壊れています（${t}）`)
   }
   return file as BackupFile

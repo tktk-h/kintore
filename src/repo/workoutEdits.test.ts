@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { db } from '../db/db'
 import { resetDb } from '../test/db'
 import { addSet, deleteSet, moveExercise, removeExerciseFromWorkout, setDone, updateExerciseNote, updateSet } from './workoutEdits'
 import { getWorkoutDetail, startWorkout } from './workouts'
@@ -60,5 +61,16 @@ describe('workoutEdits', () => {
     const { id, detail } = await setup()
     await updateExerciseNote(detail.exercises[0].workoutExercise.id, { effort: 4, note: '肩が少し痛い' })
     expect((await getWorkoutDetail(id))!.exercises[0].workoutExercise).toMatchObject({ effort: 4, note: '肩が少し痛い' })
+  })
+
+  it('種目を外すとそのセットも削除扱いになる', async () => {
+    const { detail } = await setup()
+    const we = detail.exercises[0]
+    await removeExerciseFromWorkout(we.workoutExercise.id)
+    const sets = await db.sets.where('workoutExerciseId').equals(we.workoutExercise.id).toArray()
+    expect(sets.length).toBeGreaterThan(0)
+    expect(sets.every((s) => s.deleted)).toBe(true)
+    const other = await db.sets.where('workoutExerciseId').equals(detail.exercises[1].workoutExercise.id).toArray()
+    expect(other.every((s) => !s.deleted)).toBe(true)
   })
 })

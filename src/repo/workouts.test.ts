@@ -3,7 +3,6 @@ import { db } from '../db/db'
 import type { PlannedWorkout } from '../db/types'
 import { newRecord } from '../lib/records'
 import { resetDb } from '../test/db'
-import { getPreviousSets } from './history'
 import {
   addExerciseToWorkout,
   deleteWorkout,
@@ -83,33 +82,33 @@ describe('getActiveWorkout / getLastFinishedWorkout', () => {
   })
 })
 
+describe('deleteWorkout', () => {
+  it('種目とセットも削除扱いになる', async () => {
+    const id = await startWorkout({ date: '2026-10-12', exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }] })
+    await deleteWorkout(id)
+    const wes = await db.workoutExercises.where('workoutId').equals(id).toArray()
+    const sets = await db.sets.where('workoutId').equals(id).toArray()
+    expect(wes.length).toBe(1)
+    expect(sets.length).toBe(1)
+    expect([...wes, ...sets].every((r) => r.deleted)).toBe(true)
+  })
+})
+
 describe('addExerciseToWorkout', () => {
+  it('削除済みのトレーニングや種目には追加できない', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    await db.exercises.update('ex-side-raise', { deleted: true })
+    await expect(addExerciseToWorkout(id, 'ex-side-raise')).rejects.toThrow()
+    await deleteWorkout(id)
+    await expect(addExerciseToWorkout(id, 'ex-bench-press')).rejects.toThrow()
+  })
+
   it('末尾に追加し、種目の標準の休憩時間を使う', async () => {
     const id = await startWorkout({ date: '2026-10-12', exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [] }] })
     await addExerciseToWorkout(id, 'ex-side-raise')
     const d = await getWorkoutDetail(id)
     expect(d?.exercises.map((e) => e.exercise.name)).toEqual(['ベンチプレス', 'サイドレイズ'])
     expect(d?.exercises[1].workoutExercise.restSec).toBe(60)
-  })
-})
-
-describe('getPreviousSets', () => {
-  it('指定時刻より前に終わった直近のトレーニングの、完了セットだけを返す', async () => {
-    at('2026-10-08T10:00:00')
-    const a = await startWorkout({ date: '2026-10-08', exercises: [{ exerciseId: 'ex-squat', restSec: 120, sets: [{ weight: 70, reps: 5 }] }] })
-    await finishWithFirstSetDone(a)
-    at('2026-10-12T09:00:00')
-    const b = await startWorkout({ date: '2026-10-12', exercises: [{ exerciseId: 'ex-squat', restSec: 120, sets: [{ weight: 80, reps: 5 }, { weight: 80, reps: 3 }] }] })
-    await finishWithFirstSetDone(b)
-    at('2026-10-12T12:00:00')
-    expect((await getPreviousSets('ex-squat')).map((s) => s.weight)).toEqual([80])
-    expect((await getPreviousSets('ex-squat', new Date('2026-10-10').getTime())).map((s) => s.weight)).toEqual([70])
-  })
-
-  it('終了していないトレーニングは前回に含めない', async () => {
-    await startWorkout({ date: '2026-10-12', exercises: [{ exerciseId: 'ex-squat', restSec: 120, sets: [{ weight: 80, reps: 5 }] }] })
-    at('2026-10-12T12:00:00')
-    expect(await getPreviousSets('ex-squat')).toEqual([])
   })
 })
 

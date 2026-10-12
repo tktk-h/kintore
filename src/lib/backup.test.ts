@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db/db'
 import { getBodyLog, saveBodyLog } from '../repo/body'
 import { createRoutine, listRoutines } from '../repo/routines'
+import { saveSettings } from '../repo/settings'
 import { resetDb } from '../test/db'
 import { exportBackup, importBackup, parseBackup } from './backup'
 
@@ -10,6 +11,7 @@ beforeEach(resetDb)
 describe('backup', () => {
   it('書き出したものを読み込むと元に戻る（写真も含む）', async () => {
     await createRoutine({ name: '胸の日', exercises: [] })
+    await saveSettings({ weightStep: 5 })
     await saveBodyLog('2026-10-12', { weightKg: 70, photo: 'data:image/jpeg;base64,AAA' })
     const text = JSON.stringify(await exportBackup())
 
@@ -41,5 +43,33 @@ describe('backup', () => {
     const broken = { ...backup, data: { ...backup.data, sets: 'oops' } }
     expect(() => parseBackup(JSON.stringify(broken))).toThrow('バックアップファイルが壊れています（sets）')
     expect(await db.exercises.count()).toBeGreaterThan(0)
+  })
+
+  it('メニューに sets がなければエラー', async () => {
+    await createRoutine({ name: '胸の日', exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [] }] })
+    const backup = await exportBackup()
+    const routines = (backup.data.routines as { exercises: { sets?: unknown }[] }[]).map((r) => ({
+      ...r,
+      exercises: r.exercises.map(({ sets: _sets, ...rest }) => rest),
+    }))
+    const broken = { ...backup, data: { ...backup.data, routines } }
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('バックアップファイルが壊れています（routines）')
+  })
+
+  it('新しいバージョンのバックアップは専用のメッセージ', () => {
+    expect(() => parseBackup(JSON.stringify({ app: 'kintore', version: 2, data: {} }))).toThrow(
+      '新しいバージョンのアプリで作られたバックアップです',
+    )
+  })
+
+  it('idが重複するファイルは読み込みに失敗し、今のデータは残る', async () => {
+    const backup = await exportBackup()
+    const dup = {
+      id: 'dup', createdAt: 1, updatedAt: 1, deleted: false, name: 'x', exercises: [],
+    }
+    const bad = { ...backup, data: { ...backup.data, routines: [dup, dup] } }
+    await createRoutine({ name: '残るはず', exercises: [] })
+    await expect(importBackup(parseBackup(JSON.stringify(bad)))).rejects.toThrow()
+    expect((await listRoutines()).map((r) => r.name)).toEqual(['残るはず'])
   })
 })
