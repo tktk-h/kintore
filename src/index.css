@@ -15,11 +15,13 @@
   font-family: system-ui, -apple-system, 'Hiragino Sans', sans-serif;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 body { padding-top: env(safe-area-inset-top); }
 /* ステータスバー（時計）の下に中身が透けて見えないように、上端を背景色で覆う。ダイアログ・トーストより下 */
 body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 40; pointer-events: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
+/* iPhone は 16px 未満の入力欄をタップすると画面を拡大するので、入力欄は必ず 16px 以上にする */
+input, select, textarea { font-size: max(16px, 1em); }
 button { cursor: pointer; }
 h1 { font-size: 1.4rem; margin: 0; }
 h2 { font-size: 1.1rem; margin: 0 0 8px; }
