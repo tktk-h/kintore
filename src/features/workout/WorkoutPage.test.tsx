@@ -38,6 +38,17 @@ describe('WorkoutPage', () => {
     expect(screen.getByRole('timer')).toHaveTextContent('1:30')
   })
 
+  it('種目のカードをたたむと、セット数のまとめだけ出す（開き直しても覚えている）', async () => {
+    const { unmount } = open()
+    await userEvent.click(await screen.findByRole('button', { name: '「ベンチプレス」をたたむ' }))
+    expect(screen.queryByRole('checkbox', { name: '1セット目 完了' })).toBeNull()
+    expect(screen.getByText('0/2セット')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ベンチプレス' })).toBeInTheDocument()
+    unmount()
+    open()
+    expect(await screen.findByRole('button', { name: '「ベンチプレス」を開く' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('＋で回数を変えられる', async () => {
     open()
     await userEvent.click((await screen.findAllByRole('button', { name: '回数を増やす' }))[0])
@@ -95,7 +106,7 @@ describe('WorkoutPage', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: '1セット目 完了' }))
     expect(await screen.findByRole('button', { name: '一時停止' })).toBeInTheDocument()
     await waitFor(async () => expect((await db.workouts.get(workoutId))!.pausedAt).toBeUndefined())
-    expect(screen.getByRole('timer')).toHaveTextContent('1:30')
+    expect(screen.getByRole('timer')).toHaveTextContent('休憩中')
   })
 
   it('途中のトレーニングは「キャンセル」で記録ごと取り消し、休憩タイマーも止める', async () => {
