@@ -82,7 +82,9 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
             void run(() => setDone(s.id, done))
             onSetDone(done)
           }}
-          onDelete={() => void run(() => deleteSet(s.id))}
+          onDelete={() => {
+            if (window.confirm(`${i + 1}セット目を削除しますか？`)) void run(() => deleteSet(s.id))
+          }}
         />
       ))}
       <button type="button" className="btn btn-ghost" onClick={() => run(() => addSet(we.id))}>
