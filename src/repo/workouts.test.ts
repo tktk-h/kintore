@@ -63,6 +63,23 @@ describe('startWorkout', () => {
     const d = await getWorkoutDetail(id)
     expect(d?.exercises[0].sets.map((s) => s.reps)).toEqual([10, 10, 10])
   })
+
+  it('トレーニング中なら新しく作らず、そのトレーニングを返す', async () => {
+    const first = await startWorkout({ date: '2026-10-12' })
+    expect(await startWorkout({ date: '2026-10-12', title: '別' })).toBe(first)
+    expect(await db.workouts.count()).toBe(1)
+  })
+
+  it('同時に2回呼んでも1つしか作らない', async () => {
+    const ex = [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }]
+    const [a, b] = await Promise.all([
+      startWorkout({ date: '2026-10-12', exercises: ex }),
+      startWorkout({ date: '2026-10-12', exercises: ex }),
+    ])
+    expect(a).toBe(b)
+    expect(await db.workouts.count()).toBe(1)
+    expect(await db.sets.count()).toBe(1)
+  })
 })
 
 describe('getActiveWorkout / getLastFinishedWorkout', () => {

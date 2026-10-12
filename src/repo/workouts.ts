@@ -104,13 +104,17 @@ export async function startWorkout(opts: StartWorkoutOptions): Promise<string> {
     if (!exercise) continue
     prepared.push({ pe, values: pe.sets.length ? pe.sets : await suggestSets(exercise, now) })
   }
-  await db.transaction('rw', [db.workouts, db.workoutExercises, db.sets], async () => {
+  // トレーニング中のものがあればそれを返す（ボタンの連打などで2つ作らないように）。
+  // 確認と追加を同じ書き込みトランザクションで行うので、同時に呼ばれても1つしか作られない
+  return db.transaction('rw', [db.workouts, db.workoutExercises, db.sets], async () => {
+    const active = await getActiveWorkout()
+    if (active) return active.id
     await db.workouts.add(workout)
     for (const [i, { pe, values }] of prepared.entries()) {
       await insertExercise(workout.id, pe.exerciseId, pe.restSec, i, values, now)
     }
+    return workout.id
   })
-  return workout.id
 }
 
 export async function addExerciseToWorkout(workoutId: string, exerciseId: string): Promise<void> {

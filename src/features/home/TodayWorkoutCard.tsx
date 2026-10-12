@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSafeAction } from '../../components/Toast'
 import { db } from '../../db/db'
@@ -36,20 +36,34 @@ export function TodayWorkoutCard({ date }: { date: string }) {
   const [pickingRoutine, setPickingRoutine] = useState(false)
   const navigate = useNavigate()
   const run = useSafeAction()
+  // 開始処理中の連打を無視する
+  const starting = useRef(false)
 
   if (!data) return null
   const { activeDetail, summary, plan, planNames, last } = data
 
-  const start = async (opts: StartWorkoutOptions) => {
-    let id = ''
-    if (await run(async () => (id = await startWorkout(opts)), 'トレーニングを開始できませんでした')) navigate(`/workout/${id}`)
+  /** opts を作る処理も含めて1回だけ走らせる */
+  const start = async (makeOpts: () => Promise<StartWorkoutOptions | undefined> | StartWorkoutOptions | undefined) => {
+    if (starting.current) return
+    starting.current = true
+    try {
+      let id = ''
+      const ok = await run(async () => {
+        const opts = await makeOpts()
+        if (opts) id = await startWorkout(opts)
+      }, 'トレーニングを開始できませんでした')
+      if (ok && id) navigate(`/workout/${id}`)
+    } finally {
+      starting.current = false
+    }
   }
 
-  const startFromLast = async () => {
-    if (!last) return
-    const detail = await getWorkoutDetail(last.id)
-    if (detail) await start({ date, title: last.title, exercises: toPlannedExercises(detail) })
-  }
+  const startFromLast = () =>
+    start(async () => {
+      if (!last) return undefined
+      const detail = await getWorkoutDetail(last.id)
+      return detail && { date, title: last.title, exercises: toPlannedExercises(detail) }
+    })
 
   if (activeDetail) {
     const total = activeDetail.exercises.length
@@ -91,7 +105,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
               </li>
             ))}
           </ul>
-          <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => start({ date, plan })}>
+          <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => start(() => ({ date, plan }))}>
             今日のトレーニングを始める
           </button>
         </>
@@ -106,7 +120,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
           <button type="button" className="btn btn-block" onClick={() => setPickingRoutine(true)}>
             マイメニューから選ぶ
           </button>
-          <button type="button" className="btn btn-ghost btn-block" onClick={() => start({ date })}>
+          <button type="button" className="btn btn-ghost btn-block" onClick={() => start(() => ({ date }))}>
             空から始める
           </button>
         </>
@@ -116,7 +130,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
           onClose={() => setPickingRoutine(false)}
           onPick={(routine) => {
             setPickingRoutine(false)
-            void start({ date, title: routine.name, exercises: routine.exercises })
+            void start(() => ({ date, title: routine.name, exercises: routine.exercises }))
           }}
         />
       )}

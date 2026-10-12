@@ -36,6 +36,18 @@ describe('TodayWorkoutCard', () => {
     expect(screen.getByRole('button', { name: 'マイメニューから選ぶ' })).toBeInTheDocument()
   })
 
+  it('開始ボタンを連打しても1つしか始まらない', async () => {
+    open()
+    await userEvent.dblClick(await screen.findByRole('button', { name: '空から始める' }))
+    const active = await waitFor(async () => {
+      const w = await getActiveWorkout()
+      expect(w).toBeDefined()
+      return w!
+    })
+    expect(await screen.findByTestId('current-path')).toHaveTextContent(`/workout/${active.id}`)
+    expect(await db.workouts.count()).toBe(1)
+  })
+
   it('トレーニング中なら進み具合と「続ける」を出す', async () => {
     const id = await startWorkout({ date: TODAY, exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }] })
     open()
