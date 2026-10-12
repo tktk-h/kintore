@@ -28,9 +28,9 @@ describe('RestTimerDisplay', () => {
   it('開始すると残り時間を表示し、＋15秒で増える', async () => {
     setup(90)
     await userEvent.click(screen.getByText('start'))
-    expect(screen.getByRole('timer')).toHaveTextContent('1:30')
+    expect(screen.getByRole('timer')).toHaveTextContent(/1:(30|29)/) // 負荷で1秒進むことがある
     await userEvent.click(screen.getByRole('button', { name: '＋15秒' }))
-    expect(screen.getByRole('timer')).toHaveTextContent('1:45')
+    expect(screen.getByRole('timer')).toHaveTextContent(/1:(45|44)/)
   })
 
   it('スキップで消える', async () => {

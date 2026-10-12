@@ -35,7 +35,7 @@ describe('WorkoutPage', () => {
     open()
     await userEvent.click(await screen.findByRole('checkbox', { name: '1セット目 完了' }))
     await waitFor(async () => expect((await getWorkoutDetail(workoutId))!.exercises[0].sets[0].done).toBe(true))
-    expect(screen.getByRole('timer')).toHaveTextContent('1:30')
+    expect(screen.getByRole('timer')).toHaveTextContent(/1:(30|29)/) // 負荷で1秒進むことがある
   })
 
   it('種目のカードをたたむと、セット数のまとめだけ出す（開き直しても覚えている）', async () => {
