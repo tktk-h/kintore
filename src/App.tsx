@@ -8,6 +8,7 @@ import { ExerciseListPage } from './features/exercises/ExerciseListPage'
 import { HomePage } from './features/home/HomePage'
 import { RoutineEditPage } from './features/routines/RoutineEditPage'
 import { RoutineListPage } from './features/routines/RoutineListPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 import { RestTimerProvider } from './features/timer/RestTimerContext'
 import { WorkoutPage } from './features/workout/WorkoutPage'
 
@@ -28,6 +29,7 @@ export function App() {
               <Route path="routines" element={<RoutineListPage />} />
               <Route path="routines/new" element={<RoutineEditPage />} />
               <Route path="routines/:id" element={<RoutineEditPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>
         </HashRouter>
