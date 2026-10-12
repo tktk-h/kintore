@@ -1,0 +1,78 @@
+/*
+ * デザインの基本値（色・文字・余白・角丸・影）。
+ * 方針：ほぼ黒の背景に、強いオレンジ1色だけをアクセントに使う。
+ * アクセントは「主ボタン・選択中のナビ・タイマー」に限って使い、多用しない。
+ */
+:root {
+  color-scheme: dark;
+
+  /* 背景の層（奥 → 手前） */
+  --bg: #0b0b0d;
+  --surface: #141418;
+  --surface-2: #1c1c22;
+  --surface-3: #26262e;
+  --surface-press: #31313a;
+
+  /* 線：背景になじむ薄い白 */
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.12);
+
+  /* 文字 */
+  --text: #f5f5f7;
+  --text-2: #c9c9d1;
+  --muted: #8e8e99;
+  --faint: #5c5c66;
+
+  /* アクセント（エレクトリック・オレンジ） */
+  --accent: #ff5a1f;
+  --accent-hi: #ff7240;
+  --accent-press: #e0450f;
+  --accent-soft: rgba(255, 90, 31, 0.14);
+  --accent-line: rgba(255, 90, 31, 0.42);
+  --on-accent: #ffffff;
+
+  /* 状態 */
+  --ok: #2fd573;
+  --ok-soft: rgba(47, 213, 115, 0.14);
+  --on-ok: #04140a;
+  --danger: #ff4d5e;
+  --danger-soft: rgba(255, 77, 94, 0.12);
+  --gold: #ffc53d;
+
+  /* 角丸 */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* 余白 */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+
+  /* 影 */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 18px 48px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--line-strong);
+  --shadow-accent: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.14), 0 8px 24px -6px rgba(255, 90, 31, 0.55);
+
+  /* 文字 */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', system-ui, 'Segoe UI', 'Noto Sans JP', sans-serif;
+  --fs-display: 30px;
+  --fs-title: 20px;
+  --fs-heading: 17px;
+  --fs-body: 16px;
+  --fs-sub: 14px;
+  --fs-caption: 12px;
+  --fs-micro: 10.5px;
+
+  /* 動き */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --nav-h: 60px;
+  font-family: var(--font);
+}

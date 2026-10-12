@@ -1,0 +1,54 @@
+/* 全体の土台：リセット・文字の階層・ページの枠 */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+body { padding-top: env(safe-area-inset-top); min-height: 100vh; }
+/* ステータスバー（時計）の下に中身が透けて見えないように、上端を背景色で覆う。ダイアログ・トーストより下 */
+body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 40; pointer-events: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+/* iPhone は 16px 未満の入力欄をタップすると画面を拡大するので、入力欄は必ず 16px 以上にする */
+input, select, textarea { font-size: max(16px, 1em); }
+button { cursor: pointer; touch-action: manipulation; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg.lucide { flex-shrink: 0; stroke-width: 2.25; }
+p { margin: 0; }
+
+/* 文字の階層 */
+h1 { font-size: var(--fs-display); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+h2 { font-size: var(--fs-heading); font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; margin: 0; }
+a { color: var(--accent); font-weight: 600; text-decoration: none; }
+strong { font-weight: 700; }
+.muted { color: var(--muted); font-size: var(--fs-sub); margin: 0; }
+.eyebrow { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+/* 画面には出さず、読み上げとテストのために残す文字 */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ページの枠 */
+main { min-height: 100vh; }
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-4) calc(var(--nav-h) + 104px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.page > h1, .page-header { margin-bottom: var(--s-1); }
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.page-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* 並べ方 */
+.row { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.row.between { justify-content: space-between; flex-wrap: nowrap; }
+.stack { display: flex; flex-direction: column; gap: var(--s-3); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--s-2); }

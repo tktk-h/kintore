@@ -1,0 +1,208 @@
+/* ===== 数値の増減（ステッパー） ===== */
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  height: 48px;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+.stepper > button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+}
+.stepper > button:not(.stepper-value) {
+  flex-shrink: 0;
+  width: 40px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-2);
+  transition: transform 0.1s var(--ease), background-color 0.15s;
+}
+.stepper > button:not(.stepper-value):active { transform: scale(0.88); background: var(--surface-press); color: var(--text); }
+.stepper > button svg { width: 18px; height: 18px; stroke-width: 2.75; }
+.stepper .stepper-value {
+  min-width: 68px;
+  padding: 0 6px;
+  align-items: baseline;
+  align-self: center;
+  gap: 2px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.stepper .stepper-value small { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0; }
+.stepper input {
+  width: 72px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--text);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+/* ===== 種目のカード ===== */
+.card.exercise-card { padding: var(--s-3) var(--s-3) var(--s-2); }
+.exercise-head { display: flex; align-items: center; gap: 0; margin-right: -6px; }
+.exercise-head h2 { flex: 1; min-width: 0; margin: 0 4px 0 0; font-size: 18px; font-weight: 800; }
+.exercise-meta { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; color: var(--muted); font-size: var(--fs-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+.exercise-meta svg { width: 14px; height: 14px; }
+.exercise-note { margin: 0 0 6px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-caption); }
+.rest-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.exercise-card .btn-add { width: 100%; margin: 6px 0 4px; }
+
+/* ===== セットの行 =====
+ * 375px 幅でも1行に収める（チェックが折り返さないように）。
+ * 番号・チェック・削除は固定幅、2つのステッパーが残りを分け合う */
+.set-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; padding: 8px 0; border-top: 1px solid var(--line); }
+.set-no {
+  flex-shrink: 0;
+  width: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.set-row .stepper { flex: 1 1 0; min-width: 0; height: 44px; padding: 2px; gap: 0; }
+.set-row .stepper > button:not(.stepper-value) { width: 28px; }
+.set-row .stepper > button svg { width: 16px; height: 16px; }
+.set-row .stepper .stepper-value { flex: 1 1 auto; min-width: 0; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; font-size: 16px; }
+.set-row .stepper .stepper-value small { font-size: 9.5px; line-height: 1; }
+.set-row .stepper input { flex: 1 1 auto; width: 100%; font-size: 16px; }
+.set-row > .icon-btn { position: relative; width: 30px; height: 40px; color: var(--faint); }
+/* 見た目は細くても、右の余白まで押せるようにする */
+.set-row > .icon-btn::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; right: -12px; }
+.set-row > .icon-btn svg { width: 18px; height: 18px; }
+
+/* 完了チェック：本物の checkbox を見た目だけ変える */
+.set-check {
+  -webkit-appearance: none;
+  appearance: none;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-2) center / 20px 20px no-repeat;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease), background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.set-check:active { transform: scale(0.88); }
+.set-check:checked {
+  border-color: var(--ok);
+  background-color: var(--ok);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2304140a' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  box-shadow: 0 4px 14px -4px rgba(47, 213, 115, 0.7);
+}
+.set-check:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+.set-row.done .set-no { color: var(--ok); }
+.set-row.done .stepper { opacity: 0.45; }
+.set-row.done > .icon-btn { opacity: 0.45; }
+
+/* ===== 休憩タイマー ===== */
+.timer-label { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: var(--fs-caption); font-weight: 800; letter-spacing: 0.1em; }
+.timer-label svg { width: 14px; height: 14px; stroke-width: 2.75; }
+.timer-time { font-weight: 800; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.timer-progress { height: 4px; border-radius: var(--r-pill); background: var(--surface-3); overflow: hidden; }
+.timer-progress > span { display: block; height: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(var(--p, 0)); transition: transform 0.25s linear; }
+.timer-controls { display: flex; gap: 6px; }
+.timer-controls button {
+  appearance: none;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: transform 0.12s var(--ease), background-color 0.15s;
+}
+.timer-controls button:active { transform: scale(0.94); background: var(--surface-press); }
+.timer-controls button:last-child { background: var(--text); border-color: var(--text); color: var(--bg); }
+.is-finished .timer-label { color: var(--ok); }
+.is-finished .timer-time { color: var(--ok); }
+
+/* 大きな表示（トレーニング中） */
+.timer-big {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px var(--s-4) var(--s-4);
+  background: rgba(20, 20, 24, 0.94);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 16px 36px -14px rgba(0, 0, 0, 0.9), 0 0 40px -18px rgba(255, 90, 31, 0.6);
+  text-align: center;
+}
+.timer-big .timer-text { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.timer-big .timer-time { font-size: 64px; }
+.timer-big .timer-controls button { flex: 1; min-height: 44px; }
+.timer-big.is-finished { border-color: rgba(47, 213, 115, 0.5); }
+
+/* 小さな表示（他の画面・メニューの上に浮かぶ） */
+.timer-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px);
+  z-index: 30;
+  max-width: 616px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px 6px 6px 18px;
+  background: rgba(30, 30, 36, 0.94);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.timer-bar .timer-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.timer-bar .timer-label { font-size: var(--fs-micro); }
+.timer-bar .timer-label svg { width: 12px; height: 12px; }
+.timer-bar .timer-time { font-size: 24px; }
+.timer-bar .timer-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0; background: transparent; }
+.timer-bar .timer-controls button { padding: 0 11px; }
+
+/* 終わったら光らせる（音は鳴らさない） */
+.flash { animation: flash 0.5s ease-in-out 6 alternate; }
+@keyframes flash { from { background: var(--surface-2); } to { background: var(--accent); color: var(--on-accent); } }
+.flash .timer-label,
+.flash .timer-time { color: inherit; }
+.screen-flash { position: fixed; inset: 0; z-index: 60; pointer-events: none; background: #ffffff; opacity: 0; animation: screen-flash 0.4s ease-in-out 6 alternate; }
+@keyframes screen-flash { from { opacity: 0; } to { opacity: 0.7; } }
+
+/* マイメニュー編集の休憩時間 */
+.exercise-card .rest-row { margin: 4px 0 8px; }
+.exercise-card .rest-row .exercise-meta { margin: 0; font-size: var(--fs-sub); }
