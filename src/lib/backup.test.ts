@@ -30,6 +30,13 @@ describe('backup', () => {
     expect(await listRoutines()).toEqual([])
   })
 
+  it('一時停止の項目があってもなくても読み込める', async () => {
+    const backup = await exportBackup()
+    const base = { id: 'w', createdAt: 0, updatedAt: 0, deleted: false, date: '2026-10-12', startedAt: 0 }
+    backup.data.workouts = [base, { ...base, id: 'w2', pausedAt: 10, pausedMs: 5000 }]
+    expect(parseBackup(JSON.stringify(backup)).data.workouts).toHaveLength(2)
+  })
+
   it('JSONでなければエラー', () => {
     expect(() => parseBackup('not json')).toThrow('バックアップファイルを読み込めませんでした')
   })

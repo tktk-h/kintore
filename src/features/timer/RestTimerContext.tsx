@@ -1,11 +1,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { adjustTimer, loadTimer, saveTimer, startTimer, type RestTimerState } from '../../lib/restTimer'
+import {
+  adjustTimer,
+  isTimerPaused,
+  loadTimer,
+  pauseTimer,
+  resumeTimer,
+  saveTimer,
+  startTimer,
+  type RestTimerState,
+} from '../../lib/restTimer'
 
 interface RestTimerApi {
   state: RestTimerState | null
   start: (sec: number) => void
   adjust: (deltaSec: number) => void
   skip: () => void
+  /** 残り時間をそのまま止める（トレーニングの一時停止に合わせる） */
+  pause: () => void
+  resume: () => void
   /** このタイマーで画面を光らせてよいか。1つのタイマーにつき最初の1回だけ true */
   claimFlash: (endAt: number) => boolean
 }
@@ -18,6 +30,8 @@ const RestTimerContext = createContext<RestTimerApi>({
   start: () => {},
   adjust: () => {},
   skip: () => {},
+  pause: () => {},
+  resume: () => {},
   claimFlash: () => false,
 })
 
@@ -28,7 +42,8 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
     saveTimer(next)
   }, [])
   useEffect(() => {
-    if (!state) return
+    // 一時停止中は終わらないので消さない
+    if (!state || isTimerPaused(state)) return
     const t = window.setTimeout(() => update(null), Math.max(0, state.endAt + CLEAR_AFTER_MS - Date.now()))
     return () => window.clearTimeout(t)
   }, [state, update])
@@ -46,6 +61,12 @@ export function RestTimerProvider({ children }: { children: ReactNode }) {
         if (state) update(adjustTimer(state, delta, Date.now()))
       },
       skip: () => update(null),
+      pause: () => {
+        if (state) update(pauseTimer(state, Date.now()))
+      },
+      resume: () => {
+        if (state) update(resumeTimer(state, Date.now()))
+      },
       claimFlash,
     }),
     [state, update, claimFlash],

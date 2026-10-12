@@ -129,9 +129,42 @@ export async function addExerciseToWorkout(workoutId: string, exerciseId: string
   )
 }
 
+/** 実際にトレーニングしていた時間。一時停止していた時間は入れない。途中なら今まで（一時停止中なら止めた時刻まで） */
+export function workoutDurationMs(workout: Workout, now = Date.now()): number {
+  const end = workout.pausedAt ?? workout.finishedAt ?? now
+  return Math.max(0, end - workout.startedAt - (workout.pausedMs ?? 0))
+}
+
+/** 一時停止中の時間を pausedMs に足して、一時停止を解く変更 */
+function resumeChanges(workout: Workout, now: number) {
+  return { pausedAt: undefined, pausedMs: (workout.pausedMs ?? 0) + Math.max(0, now - workout.pausedAt!) }
+}
+
+export async function pauseWorkout(id: string): Promise<void> {
+  const now = Date.now()
+  await db.transaction('rw', db.workouts, async () => {
+    const w = await db.workouts.get(id)
+    if (!alive(w) || w.finishedAt !== undefined || w.pausedAt !== undefined) return
+    await db.workouts.update(id, { pausedAt: now, updatedAt: now })
+  })
+}
+
+export async function resumeWorkout(id: string): Promise<void> {
+  const now = Date.now()
+  await db.transaction('rw', db.workouts, async () => {
+    const w = await db.workouts.get(id)
+    if (!alive(w) || w.pausedAt === undefined) return
+    await db.workouts.update(id, { ...resumeChanges(w, now), updatedAt: now })
+  })
+}
+
 export async function finishWorkout(id: string, result: FinishResult): Promise<void> {
   const now = Date.now()
-  await db.workouts.update(id, { ...result, finishedAt: now, updatedAt: now })
+  await db.transaction('rw', db.workouts, async () => {
+    const w = await db.workouts.get(id)
+    const resume = w?.pausedAt !== undefined ? resumeChanges(w, now) : {}
+    await db.workouts.update(id, { ...result, ...resume, finishedAt: now, updatedAt: now })
+  })
 }
 
 export async function deleteWorkout(id: string): Promise<void> {

@@ -143,6 +143,7 @@
 .timer-controls button:last-child { background: var(--text); border-color: var(--text); color: var(--bg); }
 .is-finished .timer-label { color: var(--ok); }
 .is-finished .timer-time { color: var(--ok); }
+.is-paused .timer-label, .is-paused .timer-time { color: var(--muted); }
 
 /* 大きな表示（トレーニング中） */
 .timer-big {
@@ -206,3 +207,7 @@
 /* マイメニュー編集の休憩時間 */
 .exercise-card .rest-row { margin: 4px 0 8px; }
 .exercise-card .rest-row .exercise-meta { margin: 0; font-size: var(--fs-sub); }
+
+/* ===== トレーニング中／一時停止中 ===== */
+.workout-status { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.workout-status .btn-sm { min-height: 44px; }

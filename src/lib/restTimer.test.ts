@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { adjustTimer, loadTimer, remainingSec, saveTimer, startTimer } from './restTimer'
+import { adjustTimer, isTimerPaused, loadTimer, pauseTimer, remainingSec, resumeTimer, saveTimer, startTimer } from './restTimer'
 
 describe('restTimer', () => {
   it('開始直後は設定した秒数が残っている', () => {
@@ -34,5 +34,39 @@ describe('restTimer', () => {
   it('壊れたデータは null', () => {
     localStorage.setItem('kintore.restTimer', '{broken')
     expect(loadTimer()).toBeNull()
+  })
+})
+
+describe('restTimer（一時停止）', () => {
+  it('一時停止すると残り時間が止まり、再開するとそこから進む', () => {
+    const t = startTimer(90, 0)
+    const paused = pauseTimer(t, 30_000)
+    expect(isTimerPaused(paused)).toBe(true)
+    expect(remainingSec(paused, 30_000)).toBe(60)
+    expect(remainingSec(paused, 500_000)).toBe(60)
+    const resumed = resumeTimer(paused, 500_000)
+    expect(isTimerPaused(resumed)).toBe(false)
+    expect(resumed.endAt).toBe(560_000)
+    expect(remainingSec(resumed, 510_000)).toBe(50)
+  })
+
+  it('一時停止中の増減は残り時間に足す', () => {
+    const paused = pauseTimer(startTimer(90, 0), 30_000)
+    expect(remainingSec(adjustTimer(paused, 15, 999_999), 999_999)).toBe(75)
+    expect(remainingSec(adjustTimer(paused, -90, 999_999), 999_999)).toBe(0)
+  })
+
+  it('二度止めても、止めていないのに再開しても変わらない。終わったタイマーは止めない', () => {
+    const t = startTimer(90, 0)
+    const paused = pauseTimer(t, 30_000)
+    expect(pauseTimer(paused, 60_000)).toEqual(paused)
+    expect(resumeTimer(t, 10_000)).toEqual(t)
+    expect(pauseTimer(t, 100_000)).toEqual(t)
+  })
+
+  it('一時停止中の状態も保存して読み戻せる', () => {
+    const paused = pauseTimer(startTimer(90, 0), 30_000)
+    saveTimer(paused)
+    expect(loadTimer()).toEqual(paused)
   })
 })

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetDb } from '../test/db'
 import { summarizeWorkout } from './summary'
 import { setDone } from './workoutEdits'
-import { finishWorkout, getWorkoutDetail, startWorkout } from './workouts'
+import { finishWorkout, getWorkoutDetail, pauseWorkout, resumeWorkout, startWorkout } from './workouts'
 
 const at = (iso: string) => vi.setSystemTime(new Date(iso))
 
@@ -35,5 +35,19 @@ describe('summarizeWorkout', () => {
     at('2026-10-12T10:00:00')
     const id = await doWorkout('2026-10-12', 60, 8)
     expect((await summarizeWorkout((await getWorkoutDetail(id))!)).personalRecords).toEqual([])
+  })
+})
+
+describe('summarizeWorkout（一時停止）', () => {
+  it('一時停止した時間を引く', async () => {
+    at('2026-10-12T10:00:00')
+    const id = await doWorkout('2026-10-12', 60, 8)
+    at('2026-10-12T10:10:00')
+    await pauseWorkout(id)
+    at('2026-10-12T10:25:00')
+    await resumeWorkout(id)
+    at('2026-10-12T10:45:00')
+    await finishWorkout(id, {})
+    expect((await summarizeWorkout((await getWorkoutDetail(id))!)).durationMs).toBe(30 * 60000)
   })
 })

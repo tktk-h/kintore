@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
 import { assignRoutineToDate } from '../../repo/plans'
 import { createRoutine } from '../../repo/routines'
@@ -13,6 +13,7 @@ const TODAY = '2026-10-12'
 const open = () => renderPage('/', '/', <TodayWorkoutCard date={TODAY} />)
 
 beforeEach(resetDb)
+afterEach(() => vi.restoreAllMocks())
 
 describe('TodayWorkoutCard', () => {
   it('予定があれば「今日のトレーニングを始める」で予定どおり始まる', async () => {
@@ -54,6 +55,32 @@ describe('TodayWorkoutCard', () => {
     expect(await screen.findByText('0/1種目')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '続ける' }))
     expect(await screen.findByTestId('current-path')).toHaveTextContent(`/workout/${id}`)
+  })
+
+  it('トレーニング中は一時停止・再開できる', async () => {
+    const id = await startWorkout({ date: TODAY, exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }] })
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: '一時停止' }))
+    expect(await screen.findByRole('button', { name: '再開' })).toBeInTheDocument()
+    expect(screen.getByText('一時停止中')).toBeInTheDocument()
+    expect((await db.workouts.get(id))!.pausedAt).toEqual(expect.any(Number))
+    await userEvent.click(screen.getByRole('button', { name: '再開' }))
+    expect(await screen.findByRole('button', { name: '一時停止' })).toBeInTheDocument()
+    expect(screen.queryByText('一時停止中')).toBeNull()
+    expect((await db.workouts.get(id))!.pausedAt).toBeUndefined()
+  })
+
+  it('キャンセルは確認してから記録ごと取り消す', async () => {
+    await startWorkout({ date: TODAY, exercises: [{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }] })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
+    expect(confirm).toHaveBeenCalledWith('このトレーニングを取り消しますか？記録したセットも消えます')
+    expect(await getActiveWorkout()).toBeDefined()
+    confirm.mockReturnValue(true)
+    await userEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+    expect(await screen.findByRole('button', { name: '空から始める' })).toBeInTheDocument()
+    expect(await getActiveWorkout()).toBeUndefined()
   })
 
   it('終わったらまとめを出す', async () => {

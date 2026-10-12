@@ -10,9 +10,12 @@ import {
   getActiveWorkout,
   getLastFinishedWorkout,
   getWorkoutDetail,
+  pauseWorkout,
+  resumeWorkout,
   saveWorkoutAsRoutine,
   startWorkout,
   toPlannedExercises,
+  workoutDurationMs,
 } from './workouts'
 
 const at = (iso: string) => vi.setSystemTime(new Date(iso))
@@ -137,5 +140,74 @@ describe('toPlannedExercises / saveWorkoutAsRoutine', () => {
     expect(toPlannedExercises(d!)).toEqual([{ exerciseId: 'ex-bench-press', restSec: 90, sets: [{ weight: 60, reps: 8 }] }])
     const routine = await saveWorkoutAsRoutine(id, '胸の日')
     expect(routine.exercises).toEqual(toPlannedExercises(d!))
+  })
+})
+
+describe('pauseWorkout / resumeWorkout', () => {
+  const get = async (id: string) => (await db.workouts.get(id))!
+
+  it('一時停止した時間は時間に入れない', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    at('2026-10-12T10:20:00')
+    await pauseWorkout(id)
+    expect((await get(id)).pausedAt).toBe(new Date('2026-10-12T10:20:00').getTime())
+    at('2026-10-12T10:30:00')
+    await resumeWorkout(id)
+    const w = await get(id)
+    expect(w.pausedAt).toBeUndefined()
+    expect(w.pausedMs).toBe(10 * 60000)
+    at('2026-10-12T10:50:00')
+    await finishWorkout(id, {})
+    expect(workoutDurationMs(await get(id))).toBe(40 * 60000)
+  })
+
+  it('一時停止中に二度止めても止めた時刻は変わらない／止めていなければ再開しても何もしない', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    await resumeWorkout(id)
+    expect((await get(id)).pausedMs).toBeUndefined()
+    at('2026-10-12T10:10:00')
+    await pauseWorkout(id)
+    at('2026-10-12T10:15:00')
+    await pauseWorkout(id)
+    expect((await get(id)).pausedAt).toBe(new Date('2026-10-12T10:10:00').getTime())
+  })
+
+  it('一時停止を重ねると合計する', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    for (const [p, r] of [['10:10', '10:15'], ['10:20', '10:30']]) {
+      at(`2026-10-12T${p}:00`)
+      await pauseWorkout(id)
+      at(`2026-10-12T${r}:00`)
+      await resumeWorkout(id)
+    }
+    expect((await get(id)).pausedMs).toBe(15 * 60000)
+  })
+
+  it('一時停止中に終了すると、止めていた時間を足してから終える', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    at('2026-10-12T10:30:00')
+    await pauseWorkout(id)
+    at('2026-10-12T11:00:00')
+    await finishWorkout(id, {})
+    const w = await get(id)
+    expect(w.pausedAt).toBeUndefined()
+    expect(w.pausedMs).toBe(30 * 60000)
+    expect(workoutDurationMs(w)).toBe(30 * 60000)
+  })
+
+  it('途中のトレーニングは今までの時間（一時停止中なら止めた時刻まで）', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    at('2026-10-12T10:20:00')
+    expect(workoutDurationMs(await get(id))).toBe(20 * 60000)
+    await pauseWorkout(id)
+    at('2026-10-12T10:50:00')
+    expect(workoutDurationMs(await get(id))).toBe(20 * 60000)
+  })
+
+  it('終わったトレーニングは一時停止しない', async () => {
+    const id = await startWorkout({ date: '2026-10-12' })
+    await finishWorkout(id, {})
+    await pauseWorkout(id)
+    expect((await get(id)).pausedAt).toBeUndefined()
   })
 })

@@ -1,6 +1,6 @@
 import { isPersonalRecord, totalVolume } from '../lib/workoutStats'
 import { getHistorySets } from './history'
-import type { WorkoutDetail } from './workouts'
+import { workoutDurationMs, type WorkoutDetail } from './workouts'
 
 export interface WorkoutSummary {
   durationMs: number
@@ -20,7 +20,7 @@ export async function summarizeWorkout(detail: WorkoutDetail): Promise<WorkoutSu
     if (isPersonalRecord(e.exercise.logType, done, history)) personalRecords.push(e.exercise.name)
   }
   return {
-    durationMs: (workout.finishedAt ?? Date.now()) - workout.startedAt,
+    durationMs: workoutDurationMs(workout),
     volume: totalVolume(detail.exercises.map((e) => ({ logType: e.exercise.logType, sets: e.sets }))),
     doneSets: detail.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0),
     personalRecords,

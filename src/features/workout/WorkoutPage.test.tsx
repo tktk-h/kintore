@@ -2,7 +2,8 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadTimer, saveTimer, startTimer } from '../../lib/restTimer'
-import { finishWorkout, getWorkoutDetail, startWorkout } from '../../repo/workouts'
+import { db } from '../../db/db'
+import { finishWorkout, getActiveWorkout, getWorkoutDetail, startWorkout } from '../../repo/workouts'
 import { resetDb } from '../../test/db'
 import { renderPage } from '../../test/render'
 import { WorkoutPage } from './WorkoutPage'
@@ -73,10 +74,51 @@ describe('WorkoutPage', () => {
     expect((await getWorkoutDetail(workoutId))!.workout).toMatchObject({ condition: 4, satisfaction: 5, finishedAt: expect.any(Number) })
   })
 
+  it('一時停止すると休憩タイマーも止まり、再開で動き出す', async () => {
+    saveTimer(startTimer(90, Date.now()))
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: '一時停止' }))
+    expect(await screen.findByRole('button', { name: '再開' })).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toHaveTextContent('一時停止中')
+    expect((await db.workouts.get(workoutId))!.pausedAt).toEqual(expect.any(Number))
+    expect(loadTimer()?.pausedRemainingMs).toEqual(expect.any(Number))
+    await userEvent.click(screen.getByRole('button', { name: '再開' }))
+    expect(await screen.findByRole('button', { name: '一時停止' })).toBeInTheDocument()
+    expect(screen.getByRole('timer')).toHaveTextContent('休憩中')
+    expect(loadTimer()?.pausedRemainingMs).toBeUndefined()
+  })
+
+  it('一時停止中にセットをチェックすると再開する', async () => {
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: '一時停止' }))
+    await screen.findByRole('button', { name: '再開' })
+    await userEvent.click(screen.getByRole('checkbox', { name: '1セット目 完了' }))
+    expect(await screen.findByRole('button', { name: '一時停止' })).toBeInTheDocument()
+    await waitFor(async () => expect((await db.workouts.get(workoutId))!.pausedAt).toBeUndefined())
+    expect(screen.getByRole('timer')).toHaveTextContent('1:30')
+  })
+
+  it('途中のトレーニングは「キャンセル」で記録ごと取り消し、休憩タイマーも止める', async () => {
+    saveTimer(startTimer(90, Date.now()))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: 'キャンセル（記録を取り消す）' }))
+    expect(await screen.findByTestId('current-path')).toHaveTextContent('/')
+    expect(await getActiveWorkout()).toBeUndefined()
+    expect(loadTimer()).toBeNull()
+  })
+
   describe('終了したトレーニング', () => {
     beforeEach(async () => {
       await finishWorkout(workoutId, {})
       saveTimer(startTimer(90, Date.now()))
+    })
+
+    it('一時停止ボタンは出さない', async () => {
+      open()
+      expect(await screen.findByRole('heading', { name: 'ベンチプレス' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '一時停止' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'キャンセル（記録を取り消す）' })).toBeNull()
     })
 
     it('休憩タイマーは小さなバーで出す', async () => {

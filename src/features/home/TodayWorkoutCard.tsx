@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CircleCheck, Flame, ListChecks, Play, Plus, RotateCcw, Trophy } from 'lucide-react'
+import { CircleCheck, Flame, ListChecks, Pause, Play, Plus, RotateCcw, Trophy, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSafeAction } from '../../components/Toast'
@@ -7,11 +7,15 @@ import { db } from '../../db/db'
 import { formatDuration } from '../../lib/dates'
 import { getPlanForDate } from '../../repo/plans'
 import { summarizeWorkout } from '../../repo/summary'
+import { useRestTimer } from '../timer/RestTimerContext'
 import {
+  deleteWorkout,
   getActiveWorkout,
   getLastFinishedWorkout,
   getWorkoutDetail,
   listWorkoutsByDate,
+  pauseWorkout,
+  resumeWorkout,
   startWorkout,
   toPlannedExercises,
   type StartWorkoutOptions,
@@ -37,6 +41,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
   const [pickingRoutine, setPickingRoutine] = useState(false)
   const navigate = useNavigate()
   const run = useSafeAction()
+  const timer = useRestTimer()
   // 開始処理中の連打を無視する
   const starting = useRef(false)
 
@@ -69,25 +74,53 @@ export function TodayWorkoutCard({ date }: { date: string }) {
   if (activeDetail) {
     const total = activeDetail.exercises.length
     const doneCount = activeDetail.exercises.filter((e) => e.sets.length > 0 && e.sets.every((s) => s.done)).length
+    const { workout } = activeDetail
+    const paused = workout.pausedAt !== undefined
+    const togglePause = async () => {
+      if (paused) {
+        if (await run(() => resumeWorkout(workout.id))) timer.resume()
+      } else if (await run(() => pauseWorkout(workout.id))) timer.pause()
+    }
+    const cancel = async () => {
+      if (!window.confirm('このトレーニングを取り消しますか？記録したセットも消えます')) return
+      if (await run(() => deleteWorkout(workout.id))) timer.skip()
+    }
     return (
       <section className="card hero stack">
         <div className="card-head">
-          <span className="eyebrow live-label">
-            <span className="live-dot" aria-hidden="true" />
-            トレーニング中
-          </span>
+          {paused ? (
+            <span className="eyebrow badge-paused">
+              <Pause aria-hidden="true" />
+              一時停止中
+            </span>
+          ) : (
+            <span className="eyebrow live-label">
+              <span className="live-dot" aria-hidden="true" />
+              トレーニング中
+            </span>
+          )}
           <span className="muted num">
             {doneCount}/{total}種目
           </span>
         </div>
-        <h2 className="hero-title">{activeDetail.workout.title ?? 'トレーニング'}</h2>
+        <h2 className="hero-title">{workout.title ?? 'トレーニング'}</h2>
         <div className="progress" aria-hidden="true">
           <span style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} />
         </div>
-        <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => navigate(`/workout/${activeDetail.workout.id}`)}>
+        <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => navigate(`/workout/${workout.id}`)}>
           <Play aria-hidden="true" fill="currentColor" />
           続ける
         </button>
+        <div className="btn-pair">
+          <button type="button" className="btn" onClick={togglePause}>
+            {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
+            {paused ? '再開' : '一時停止'}
+          </button>
+          <button type="button" className="btn btn-danger" onClick={cancel}>
+            <X aria-hidden="true" />
+            キャンセル
+          </button>
+        </div>
       </section>
     )
   }

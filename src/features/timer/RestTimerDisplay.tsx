@@ -1,6 +1,6 @@
-import { Check, Timer as TimerIcon } from 'lucide-react'
+import { Check, Pause, Timer as TimerIcon } from 'lucide-react'
 import { useEffect, useState, type CSSProperties } from 'react'
-import { remainingSec } from '../../lib/restTimer'
+import { isTimerPaused, remainingSec } from '../../lib/restTimer'
 import { formatSeconds } from '../../lib/workoutStats'
 import { useNow, useRestTimer } from './RestTimerContext'
 import { useWakeLock } from './useWakeLock'
@@ -12,10 +12,12 @@ import { useWakeLock } from './useWakeLock'
  */
 export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
   const { state, adjust, skip, claimFlash } = useRestTimer()
-  const now = useNow(state !== null)
+  const paused = state !== null && isTimerPaused(state)
+  // 一時停止中は残り時間が変わらないので、時刻を更新しない
+  const now = useNow(state !== null && !paused)
   const remaining = state ? remainingSec(state, now) : 0
-  const finished = state !== null && remaining === 0
-  useWakeLock(state !== null && !finished)
+  const finished = state !== null && !paused && remaining === 0
+  useWakeLock(state !== null && !finished && !paused)
   // 光らせるのは1つのタイマーにつき1回だけ（画面を移動して表示し直しても、また光らせない）
   const finishedEndAt = finished ? state.endAt : null
   const [flashEndAt, setFlashEndAt] = useState<number | null>(null)
@@ -26,7 +28,7 @@ export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
   if (!state) return null
   // 残りの割合（見た目のバー用）
   const progress = state.durationSec > 0 ? Math.min(1, remaining / state.durationSec) : 0
-  const classes = [variant === 'big' ? 'timer-big' : 'timer-bar', finished ? 'is-finished' : '', flashing ? 'flash' : '']
+  const classes = [variant === 'big' ? 'timer-big' : 'timer-bar', finished ? 'is-finished' : '', paused ? 'is-paused' : '', flashing ? 'flash' : '']
 
   return (
     <>
@@ -34,8 +36,8 @@ export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
       <div className={classes.filter(Boolean).join(' ')} role="timer" style={{ '--p': progress } as CSSProperties}>
         <div className="timer-text">
           <span className="timer-label">
-            {finished ? <Check aria-hidden="true" /> : <TimerIcon aria-hidden="true" />}
-            {finished ? '休憩終了！' : '休憩中'}
+            {finished ? <Check aria-hidden="true" /> : paused ? <Pause aria-hidden="true" /> : <TimerIcon aria-hidden="true" />}
+            {finished ? '休憩終了！' : paused ? '一時停止中' : '休憩中'}
           </span>
           <span className="timer-time">{formatSeconds(remaining)}</span>
         </div>

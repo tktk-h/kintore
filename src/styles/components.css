@@ -451,3 +451,10 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .day-set-mark svg { width: 20px; height: 20px; }
 .day-set-todo { color: var(--faint); font-size: var(--fs-caption); }
 .day-set.is-undone .day-set-val { color: var(--faint); font-weight: 500; }
+
+/* ===== 一時停止 ===== */
+.badge-paused { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-pill); background: var(--surface-3); color: var(--text-2); }
+.badge-paused svg { width: 14px; height: 14px; }
+/* 横に2つ並べるボタン */
+.btn-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.btn-pair .btn { min-width: 0; padding: 0 var(--s-2); }

@@ -59,6 +59,10 @@ export interface Workout extends BaseRecord {
   title?: string
   startedAt: number
   finishedAt?: number
+  /** 一時停止した時刻。一時停止中だけある */
+  pausedAt?: number
+  /** これまでに一時停止していた時間の合計（ミリ秒） */
+  pausedMs?: number
   condition?: Rating
   satisfaction?: Rating
   note?: string

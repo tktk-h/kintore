@@ -12,7 +12,7 @@ import { formatSet, totalVolume } from '../../lib/workoutStats'
 import { getBodyLog } from '../../repo/body'
 import { assignRoutineToDate, deletePlan, getPlanForDate } from '../../repo/plans'
 import { listRoutines } from '../../repo/routines'
-import { getWorkoutDetail, listWorkoutsByDate, type WorkoutDetail } from '../../repo/workouts'
+import { getWorkoutDetail, listWorkoutsByDate, workoutDurationMs, type WorkoutDetail } from '../../repo/workouts'
 
 async function loadDay(date: string) {
   const workouts = await listWorkoutsByDate(date)
@@ -46,7 +46,7 @@ export function DayDetailPage() {
       {details.map(({ workout, exercises }) => {
         const doneCount = exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
         const volume = totalVolume(exercises.map((e) => ({ logType: e.exercise.logType, sets: e.sets })))
-        const minutes = workout.finishedAt !== undefined ? Math.round((workout.finishedAt - workout.startedAt) / 60000) : undefined
+        const minutes = workout.finishedAt !== undefined ? Math.round(workoutDurationMs(workout) / 60000) : undefined
         return (
           <section key={workout.id} className="card stack">
             <div className="row between">

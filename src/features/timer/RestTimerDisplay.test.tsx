@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { loadTimer, saveTimer } from '../../lib/restTimer'
+import { loadTimer, pauseTimer, saveTimer, startTimer } from '../../lib/restTimer'
 import { RestTimerProvider, useRestTimer } from './RestTimerContext'
 import { RestTimerDisplay } from './RestTimerDisplay'
 
@@ -74,5 +74,20 @@ describe('RestTimerDisplay（終わったあと）', () => {
     rerender(ui(true))
     expect(screen.getByRole('timer')).toHaveTextContent('休憩終了')
     expect(container.querySelector('.screen-flash')).toBeNull()
+  })
+})
+
+describe('RestTimerDisplay（一時停止）', () => {
+  it('一時停止中は「一時停止中」と出し、残り時間が進まない', async () => {
+    saveTimer(pauseTimer(startTimer(90, Date.now()), Date.now() + 30_000))
+    render(
+      <RestTimerProvider>
+        <RestTimerDisplay variant="big" />
+      </RestTimerProvider>,
+    )
+    expect(screen.getByRole('timer')).toHaveTextContent('一時停止中')
+    expect(screen.getByRole('timer')).toHaveTextContent('1:00')
+    await act(() => new Promise((r) => setTimeout(r, 1100)))
+    expect(screen.getByRole('timer')).toHaveTextContent('1:00')
   })
 })
