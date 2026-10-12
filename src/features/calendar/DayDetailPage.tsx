@@ -1,13 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { CalendarX2 } from 'lucide-react'
+import { CalendarX2, Check } from 'lucide-react'
 import { EmptyState } from '../../components/EmptyState'
+import { PageHeader } from '../../components/PageHeader'
 import { FACES } from '../../components/RatingPicker'
 import { useSafeAction } from '../../components/Toast'
 import { db } from '../../db/db'
 import { formatDateJa } from '../../lib/dates'
-import { formatSet } from '../../lib/workoutStats'
+import { formatSet, totalVolume } from '../../lib/workoutStats'
 import { getBodyLog } from '../../repo/body'
 import { assignRoutineToDate, deletePlan, getPlanForDate } from '../../repo/plans'
 import { listRoutines } from '../../repo/routines'
@@ -35,46 +36,73 @@ export function DayDetailPage() {
 
   return (
     <div className="page">
-      <h1>{formatDateJa(date)}</h1>
+      <PageHeader backTo="/" title={formatDateJa(date)} />
       {empty && (
         <EmptyState icon={CalendarX2}>
           <p>この日の記録はありません</p>
         </EmptyState>
       )}
 
-      {details.map(({ workout, exercises }) => (
-        <section key={workout.id} className="card stack">
-          <div className="row between">
-            <h2>{workout.title ?? 'トレーニング'}</h2>
-            <Link to={`/workout/${workout.id}`}>{workout.finishedAt === undefined ? '続ける' : '編集'}</Link>
-          </div>
-          {exercises.map(({ workoutExercise: we, exercise, sets }) => (
-            <div key={we.id} className="day-exercise">
-              <strong>{exercise.name}</strong>
-              <ul className="set-list">
-                {sets
-                  .filter((s) => s.done)
-                  .map((s) => (
-                    <li key={s.id}>{formatSet(exercise.logType, s)}</li>
-                  ))}
-              </ul>
-              {(we.effort !== undefined || we.note) && (
-                <p className="muted">
-                  {we.effort !== undefined && `きつさ ${we.effort} `}
-                  {we.note}
-                </p>
-              )}
+      {details.map(({ workout, exercises }) => {
+        const doneCount = exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
+        const volume = totalVolume(exercises.map((e) => ({ logType: e.exercise.logType, sets: e.sets })))
+        const minutes = workout.finishedAt !== undefined ? Math.round((workout.finishedAt - workout.startedAt) / 60000) : undefined
+        return (
+          <section key={workout.id} className="card stack">
+            <div className="row between">
+              <h2>{workout.title ?? 'トレーニング'}</h2>
+              <Link to={`/workout/${workout.id}`}>{workout.finishedAt === undefined ? '続ける' : '編集'}</Link>
             </div>
-          ))}
-          {(workout.condition !== undefined || workout.satisfaction !== undefined) && (
-            <p>
-              {workout.condition !== undefined && `調子 ${FACES[workout.condition - 1]}　`}
-              {workout.satisfaction !== undefined && `満足度 ${workout.satisfaction}`}
+            <p className="day-stats">
+              {minutes !== undefined && <span>{minutes}分</span>}
+              <span>{doneCount}セット</span>
+              {volume > 0 && <span>総重量 {volume.toLocaleString('en-US')}kg</span>}
             </p>
-          )}
-          {workout.note && <p className="muted">メモ：{workout.note}</p>}
-        </section>
-      ))}
+            {exercises.map(({ workoutExercise: we, exercise, sets }) => {
+              const doneN = sets.filter((x) => x.done).length
+              const vol = totalVolume([{ logType: exercise.logType, sets }])
+              return (
+                <div key={we.id} className="day-exercise">
+                  <div className="day-ex-head">
+                    <strong>{exercise.name}</strong>
+                    <span className="day-ex-sum">
+                      {doneN}セット{exercise.logType === 'weight_reps' && vol > 0 && ` ${vol.toLocaleString('en-US')}kg`}
+                    </span>
+                  </div>
+                  <ol className="day-sets">
+                    {sets.map((s, i) => (
+                      <li key={s.id} className={`day-set${s.done ? '' : ' is-undone'}`}>
+                        <span className="day-set-no">{i + 1}</span>
+                        <span className="day-set-val">{formatSet(exercise.logType, s)}</span>
+                        {s.done ? (
+                          <span className="day-set-mark" role="img" aria-label="完了">
+                            <Check aria-hidden="true" />
+                          </span>
+                        ) : (
+                          <span className="day-set-todo">未完了</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  {(we.effort !== undefined || we.note) && (
+                    <p className="muted">
+                      {we.effort !== undefined && `きつさ ${we.effort} `}
+                      {we.note}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+            {(workout.condition !== undefined || workout.satisfaction !== undefined) && (
+              <p>
+                {workout.condition !== undefined && `調子 ${FACES[workout.condition - 1]}　`}
+                {workout.satisfaction !== undefined && `満足度 ${workout.satisfaction}`}
+              </p>
+            )}
+            {workout.note && <p className="muted">メモ：{workout.note}</p>}
+          </section>
+        )
+      })}
 
       <section className="card stack">
         <div className="row between">

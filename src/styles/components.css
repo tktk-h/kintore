@@ -431,3 +431,23 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .weight-card { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
 .weight-card .card-title svg { width: 14px; height: 14px; }
 .row-label { font-weight: 700; }
+
+/* ===== 戻るボタン ===== */
+.back-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 44px; min-width: 44px; margin: calc(var(--s-2) * -1) 0 calc(var(--s-2) * -1) calc(var(--s-2) * -1); padding: 0 var(--s-3) 0 var(--s-2); border: 0; background: transparent; color: var(--accent-hi); font: inherit; font-size: var(--fs-body); font-weight: 700; cursor: pointer; border-radius: var(--r-sm); }
+.back-btn svg { width: 22px; height: 22px; }
+.back-btn:active { background: var(--surface-2); }
+
+/* ===== 日の詳細：セット一覧 ===== */
+.day-stats { display: flex; flex-wrap: wrap; gap: 4px var(--s-3); margin: 0; color: var(--text-2); font-size: var(--fs-sub); font-variant-numeric: tabular-nums; }
+.day-ex-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
+.day-ex-head strong { min-width: 0; overflow-wrap: anywhere; }
+.day-ex-sum { flex: none; color: var(--muted); font-size: var(--fs-sub); font-variant-numeric: tabular-nums; }
+.day-sets { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.day-set { display: flex; align-items: center; gap: var(--s-3); padding: 6px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.day-set:first-child { border-top: 0; }
+.day-set-no { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); font-size: var(--fs-caption); font-weight: 700; }
+.day-set-val { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 700; }
+.day-set-mark { flex: none; display: inline-flex; align-items: center; color: var(--ok); }
+.day-set-mark svg { width: 20px; height: 20px; }
+.day-set-todo { color: var(--faint); font-size: var(--fs-caption); }
+.day-set.is-undone .day-set-val { color: var(--faint); font-weight: 500; }
