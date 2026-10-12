@@ -11,11 +11,25 @@ interface Props {
 
 const round = (v: number) => Math.round(v * 100) / 100
 
-export function Stepper({ label, value, step, min = 0, unit, onChange }: Props) {
+/**
+ * 表示する値は自分でも持つ（保存が終わるのを待たずに連打しても増えるように）。
+ * value が外から変わったときだけ、それに合わせ直す
+ */
+export function Stepper({ label, value: propValue, step, min = 0, unit, onChange }: Props) {
   const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(propValue)
+  const [seen, setSeen] = useState(propValue)
+  if (propValue !== seen) {
+    setSeen(propValue)
+    setValue(propValue)
+  }
+  const change = (v: number) => {
+    setValue(v)
+    onChange(v)
+  }
   return (
     <div className="stepper">
-      <button type="button" aria-label={`${label}を減らす`} onClick={() => onChange(Math.max(min, round(value - step)))}>
+      <button type="button" aria-label={`${label}を減らす`} onClick={() => change(Math.max(min, round(value - step)))}>
         −
       </button>
       {editing ? (
@@ -27,7 +41,7 @@ export function Stepper({ label, value, step, min = 0, unit, onChange }: Props) 
           autoFocus
           onBlur={(e) => {
             const v = Number(e.target.value)
-            if (e.target.value !== '' && !Number.isNaN(v)) onChange(Math.max(min, round(v)))
+            if (e.target.value !== '' && !Number.isNaN(v)) change(Math.max(min, round(v)))
             setEditing(false)
           }}
         />
@@ -37,7 +51,7 @@ export function Stepper({ label, value, step, min = 0, unit, onChange }: Props) 
           {unit && <small>{unit}</small>}
         </button>
       )}
-      <button type="button" aria-label={`${label}を増やす`} onClick={() => onChange(round(value + step))}>
+      <button type="button" aria-label={`${label}を増やす`} onClick={() => change(round(value + step))}>
         ＋
       </button>
     </div>
