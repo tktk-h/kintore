@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { remainingSec } from '../../lib/restTimer'
 import { formatSeconds } from '../../lib/workoutStats'
 import { useNow, useRestTimer } from './RestTimerContext'
@@ -9,11 +10,18 @@ import { useWakeLock } from './useWakeLock'
  * 音は鳴らさない（ジムで周りの迷惑になるため）。終わったら画面を光らせる
  */
 export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
-  const { state, adjust, skip } = useRestTimer()
+  const { state, adjust, skip, claimFlash } = useRestTimer()
   const now = useNow(state !== null)
   const remaining = state ? remainingSec(state, now) : 0
   const finished = state !== null && remaining === 0
   useWakeLock(state !== null && !finished)
+  // 光らせるのは1つのタイマーにつき1回だけ（画面を移動して表示し直しても、また光らせない）
+  const finishedEndAt = finished ? state.endAt : null
+  const [flashEndAt, setFlashEndAt] = useState<number | null>(null)
+  useEffect(() => {
+    if (finishedEndAt !== null && claimFlash(finishedEndAt)) setFlashEndAt(finishedEndAt)
+  }, [finishedEndAt, claimFlash])
+  const flashing = finishedEndAt !== null && flashEndAt === finishedEndAt
   if (!state) return null
 
   const controls = (
@@ -36,8 +44,8 @@ export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
 
   return (
     <>
-      {finished && <div className="screen-flash" />}
-      <div className={`${variant === 'big' ? 'timer-big' : 'timer-bar'} ${finished ? 'flash' : ''}`} role="timer">
+      {flashing && <div className="screen-flash" />}
+      <div className={`${variant === 'big' ? 'timer-big' : 'timer-bar'} ${flashing ? 'flash' : ''}`} role="timer">
         <span>{finished ? '休憩終了！' : '休憩中'}</span>
         <span className="timer-time">{formatSeconds(remaining)}</span>
         {variant === 'big' ? <div className="row">{controls}</div> : controls}

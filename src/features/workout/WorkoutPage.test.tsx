@@ -1,7 +1,8 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getWorkoutDetail, startWorkout } from '../../repo/workouts'
+import { loadTimer, saveTimer, startTimer } from '../../lib/restTimer'
+import { finishWorkout, getWorkoutDetail, startWorkout } from '../../repo/workouts'
 import { resetDb } from '../../test/db'
 import { renderPage } from '../../test/render'
 import { WorkoutPage } from './WorkoutPage'
@@ -70,5 +71,26 @@ describe('WorkoutPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '終了する' }))
     expect(await screen.findByTestId('current-path')).toHaveTextContent('/')
     expect((await getWorkoutDetail(workoutId))!.workout).toMatchObject({ condition: 4, satisfaction: 5, finishedAt: expect.any(Number) })
+  })
+
+  describe('終了したトレーニング', () => {
+    beforeEach(async () => {
+      await finishWorkout(workoutId, {})
+      saveTimer(startTimer(90, Date.now()))
+    })
+
+    it('休憩タイマーは小さなバーで出す', async () => {
+      open()
+      expect(await screen.findByRole('heading', { name: 'ベンチプレス' })).toBeInTheDocument()
+      expect(screen.getByRole('timer')).toHaveClass('timer-bar')
+    })
+
+    it('削除しても動いている休憩タイマーは止めない', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      open()
+      await userEvent.click(await screen.findByRole('button', { name: 'このトレーニングを削除' }))
+      expect(await screen.findByTestId('current-path')).toHaveTextContent('/')
+      expect(loadTimer()).not.toBeNull()
+    })
   })
 })

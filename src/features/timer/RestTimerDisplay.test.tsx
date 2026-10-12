@@ -1,6 +1,7 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
+import { loadTimer, saveTimer } from '../../lib/restTimer'
 import { RestTimerProvider, useRestTimer } from './RestTimerContext'
 import { RestTimerDisplay } from './RestTimerDisplay'
 
@@ -44,5 +45,34 @@ describe('RestTimerDisplay', () => {
     await userEvent.click(screen.getByText('start'))
     await act(() => new Promise((r) => setTimeout(r, 1300)))
     expect(screen.getByRole('timer')).toHaveTextContent('休憩終了')
+  })
+})
+
+describe('RestTimerDisplay（終わったあと）', () => {
+  const finishedAgo = (ms: number) => saveTimer({ endAt: Date.now() - ms, durationSec: 90 })
+
+  it('終わって2分たったら自動で消える', async () => {
+    finishedAgo(119_500)
+    render(
+      <RestTimerProvider>
+        <RestTimerDisplay variant="bar" />
+      </RestTimerProvider>,
+    )
+    expect(screen.getByRole('timer')).toHaveTextContent('休憩終了')
+    await waitFor(() => expect(screen.queryByRole('timer')).toBeNull(), { timeout: 2000 })
+    expect(loadTimer()).toBeNull()
+  })
+
+  it('画面を光らせるのは1つのタイマーにつき1回だけ', () => {
+    finishedAgo(1000)
+    const ui = (shown: boolean) => (
+      <RestTimerProvider>{shown && <RestTimerDisplay variant="bar" />}</RestTimerProvider>
+    )
+    const { container, rerender } = render(ui(true))
+    expect(container.querySelector('.screen-flash')).not.toBeNull()
+    rerender(ui(false))
+    rerender(ui(true))
+    expect(screen.getByRole('timer')).toHaveTextContent('休憩終了')
+    expect(container.querySelector('.screen-flash')).toBeNull()
   })
 })

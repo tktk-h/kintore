@@ -46,7 +46,7 @@ export function WorkoutPage() {
         <h1>{workout.title ?? 'トレーニング'}</h1>
         <span className="muted">{formatDateJa(workout.date)}</span>
       </header>
-      {active && <RestTimerDisplay variant="big" />}
+      <RestTimerDisplay variant={active ? 'big' : 'bar'} />
       {exercises.map((e, i) => (
         <ExerciseBlock
           key={e.workoutExercise.id}
@@ -77,7 +77,8 @@ export function WorkoutPage() {
         className="btn btn-danger btn-block"
         onClick={async () => {
           if (window.confirm('このトレーニングを削除しますか？') && (await run(() => deleteWorkout(workout.id)))) {
-            timer.skip()
+            // 終了済みのトレーニングを消すときは、別のトレーニングの休憩タイマーかもしれないので止めない
+            if (active) timer.skip()
             navigate('/')
           }
         }}
