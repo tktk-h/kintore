@@ -102,3 +102,12 @@ input[type='text'], input[type='search'], input[type='date'], select, textarea {
 .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .photos img, img.photo { width: 100%; border-radius: 10px; }
 .toast { position: fixed; z-index: 100; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 12px); padding: 12px 16px; background: #333a48; border: 1px solid var(--accent); border-radius: 12px; }
+
+/* セットの行は 375px 幅でも1行に収める（チェックボックスが折り返さないように） */
+.set-row { flex-wrap: nowrap; gap: 4px; }
+.set-row .stepper > button { min-width: 30px; padding: 0; }
+.set-row .stepper .stepper-value { min-width: 44px; padding: 0 2px; }
+.set-row .stepper input { width: 48px; }
+.set-row .icon-btn { min-width: 28px; padding: 0; }
+.set-no { flex-shrink: 0; width: 14px; }
+.set-check { flex-shrink: 0; }
