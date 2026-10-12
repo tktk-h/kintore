@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { Check, Timer as TimerIcon } from 'lucide-react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { remainingSec } from '../../lib/restTimer'
 import { formatSeconds } from '../../lib/workoutStats'
 import { useNow, useRestTimer } from './RestTimerContext'
@@ -23,32 +24,40 @@ export function RestTimerDisplay({ variant }: { variant: 'big' | 'bar' }) {
   }, [finishedEndAt, claimFlash])
   const flashing = finishedEndAt !== null && flashEndAt === finishedEndAt
   if (!state) return null
-
-  const controls = (
-    <>
-      {!finished && (
-        <>
-          <button type="button" onClick={() => adjust(-15)}>
-            −15秒
-          </button>
-          <button type="button" onClick={() => adjust(15)}>
-            ＋15秒
-          </button>
-        </>
-      )}
-      <button type="button" onClick={skip}>
-        {finished ? '閉じる' : 'スキップ'}
-      </button>
-    </>
-  )
+  // 残りの割合（見た目のバー用）
+  const progress = state.durationSec > 0 ? Math.min(1, remaining / state.durationSec) : 0
+  const classes = [variant === 'big' ? 'timer-big' : 'timer-bar', finished ? 'is-finished' : '', flashing ? 'flash' : '']
 
   return (
     <>
       {flashing && <div className="screen-flash" />}
-      <div className={`${variant === 'big' ? 'timer-big' : 'timer-bar'} ${flashing ? 'flash' : ''}`} role="timer">
-        <span>{finished ? '休憩終了！' : '休憩中'}</span>
-        <span className="timer-time">{formatSeconds(remaining)}</span>
-        {variant === 'big' ? <div className="row">{controls}</div> : controls}
+      <div className={classes.filter(Boolean).join(' ')} role="timer" style={{ '--p': progress } as CSSProperties}>
+        <div className="timer-text">
+          <span className="timer-label">
+            {finished ? <Check aria-hidden="true" /> : <TimerIcon aria-hidden="true" />}
+            {finished ? '休憩終了！' : '休憩中'}
+          </span>
+          <span className="timer-time">{formatSeconds(remaining)}</span>
+        </div>
+        <div className="timer-progress" aria-hidden="true">
+          <span />
+        </div>
+        <div className="timer-controls">
+          {!finished && (
+            <>
+              <button type="button" onClick={() => adjust(-15)}>
+                −15秒
+              </button>
+              {/* 全角の＋は幅が広いので、見た目だけ半角の + にする */}
+              <button type="button" aria-label="＋15秒" onClick={() => adjust(15)}>
+                +15秒
+              </button>
+            </>
+          )}
+          <button type="button" onClick={skip}>
+            {finished ? '閉じる' : 'スキップ'}
+          </button>
+        </div>
       </div>
     </>
   )

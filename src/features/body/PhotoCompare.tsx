@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Images } from 'lucide-react'
 import { useState } from 'react'
+import { EmptyState } from '../../components/EmptyState'
 import { formatDateJa } from '../../lib/dates'
 import { listPhotoLogs } from '../../repo/body'
 
@@ -12,7 +14,9 @@ export function PhotoCompare() {
     return (
       <section className="card">
         <h2>写真の比較</h2>
-        <p className="muted">写真が2枚以上になると比較できます</p>
+        <EmptyState icon={Images}>
+          <p>写真が2枚以上になると比較できます</p>
+        </EmptyState>
       </section>
     )
   }

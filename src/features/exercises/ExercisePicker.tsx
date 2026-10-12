@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react'
 import { Dialog } from '../../components/Dialog'
 import { EQUIPMENT_LABELS, type Exercise } from '../../db/types'
 import { useExerciseFilter } from './ExerciseFilter'
@@ -17,7 +18,10 @@ export function ExercisePicker({ onPick, onClose }: Props) {
           <li key={e.id}>
             <button type="button" className="item" onClick={() => onPick(e)}>
               {e.name}
-              <span className="muted">{EQUIPMENT_LABELS[e.equipment]}</span>
+              <span className="item-meta">
+                {EQUIPMENT_LABELS[e.equipment]}
+                <Plus aria-hidden="true" />
+              </span>
             </button>
           </li>
         ))}

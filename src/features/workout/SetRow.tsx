@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useState } from 'react'
 import { SetInputs } from '../../components/SetInputs'
 import type { Exercise, SetRecord, SetValues, Settings } from '../../db/types'
@@ -36,7 +37,7 @@ export function SetRow({ index, set, exercise, settings, onChange, onToggle, onD
         }}
       />
       <button type="button" className="icon-btn" aria-label={`${no}セット目を削除`} onClick={onDelete}>
-        ×
+        <X aria-hidden="true" />
       </button>
     </div>
   )

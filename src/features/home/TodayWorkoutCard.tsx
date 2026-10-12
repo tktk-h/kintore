@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { CircleCheck, Flame, ListChecks, Play, Plus, RotateCcw, Trophy } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useSafeAction } from '../../components/Toast'
@@ -69,12 +70,22 @@ export function TodayWorkoutCard({ date }: { date: string }) {
     const total = activeDetail.exercises.length
     const doneCount = activeDetail.exercises.filter((e) => e.sets.length > 0 && e.sets.every((s) => s.done)).length
     return (
-      <section className="card stack">
-        <h2>トレーニング中：{activeDetail.workout.title ?? 'トレーニング'}</h2>
-        <p className="muted">
-          {doneCount}/{total}種目
-        </p>
+      <section className="card hero stack">
+        <div className="card-head">
+          <span className="eyebrow live-label">
+            <span className="live-dot" aria-hidden="true" />
+            トレーニング中
+          </span>
+          <span className="muted num">
+            {doneCount}/{total}種目
+          </span>
+        </div>
+        <h2 className="hero-title">{activeDetail.workout.title ?? 'トレーニング'}</h2>
+        <div className="progress" aria-hidden="true">
+          <span style={{ width: `${total ? (doneCount / total) * 100 : 0}%` }} />
+        </div>
         <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => navigate(`/workout/${activeDetail.workout.id}`)}>
+          <Play aria-hidden="true" fill="currentColor" />
           続ける
         </button>
       </section>
@@ -82,48 +93,85 @@ export function TodayWorkoutCard({ date }: { date: string }) {
   }
 
   return (
-    <section className="card stack">
-      <h2>今日のトレーニング</h2>
+    <section className="card hero stack">
+      <div className="card-head">
+        <h2 className="card-title">
+          <Flame aria-hidden="true" />
+          今日のトレーニング
+        </h2>
+      </div>
       {summary && (
-        <div className="stack">
-          <p>
-            お疲れさまでした！ {formatDuration(summary.durationMs)}・{summary.doneSets}セット
+        <div className="stack-sm">
+          <p className="done-line">
+            <CircleCheck aria-hidden="true" />
+            お疲れさまでした！
           </p>
-          <p>総重量 {summary.volume.toLocaleString()}kg</p>
-          {summary.personalRecords.length > 0 && <p>🏆 自己ベスト：{summary.personalRecords.join('、')}</p>}
+          <div className="stats" aria-hidden="true">
+            <div className="stat">
+              <span className="stat-label">時間</span>
+              <span className="stat-value">
+                {Math.round(summary.durationMs / 60000)}
+                <small>分</small>
+              </span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">セット</span>
+              <span className="stat-value">{summary.doneSets}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">総重量</span>
+              <span className="stat-value">
+                {summary.volume.toLocaleString()}
+                <small>kg</small>
+              </span>
+            </div>
+          </div>
+          <p className="sr-only">
+            {formatDuration(summary.durationMs)}・{summary.doneSets}セット
+          </p>
+          <p className="sr-only">総重量 {summary.volume.toLocaleString()}kg</p>
+          {summary.personalRecords.length > 0 && (
+            <p className="pr-line">
+              <Trophy aria-hidden="true" />
+              <span>自己ベスト：{summary.personalRecords.join('、')}</span>
+            </p>
+          )}
         </div>
       )}
       {plan && (
         <>
-          <p>
-            <strong>{plan.title}</strong>
-          </p>
-          <ul className="list">
-            {planNames.map((name, i) => (
-              <li key={i} className="muted">
-                {name}
-              </li>
-            ))}
-          </ul>
+          <div className="plan-box">
+            <p className="eyebrow">今日の予定</p>
+            <p className="plan-title">{plan.title}</p>
+            <ul className="plan-list">
+              {planNames.map((name, i) => (
+                <li key={i}>{name}</li>
+              ))}
+            </ul>
+          </div>
           <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => start(() => ({ date, plan }))}>
+            <Play aria-hidden="true" fill="currentColor" />
             今日のトレーニングを始める
           </button>
         </>
       )}
       {!plan && (
-        <>
+        <div className="stack-sm">
           {last && (
-            <button type="button" className={`btn btn-block ${summary ? '' : 'btn-primary'}`} onClick={startFromLast}>
+            <button type="button" className={`btn btn-block ${summary ? '' : 'btn-primary btn-big'}`} onClick={startFromLast}>
+              {summary ? <RotateCcw aria-hidden="true" /> : <Play aria-hidden="true" fill="currentColor" />}
               前回の「{last.title ?? 'トレーニング'}」で始める
             </button>
           )}
           <button type="button" className="btn btn-block" onClick={() => setPickingRoutine(true)}>
+            <ListChecks aria-hidden="true" />
             マイメニューから選ぶ
           </button>
           <button type="button" className="btn btn-ghost btn-block" onClick={() => start(() => ({ date }))}>
+            <Plus aria-hidden="true" />
             空から始める
           </button>
-        </>
+        </div>
       )}
       {pickingRoutine && (
         <RoutinePickerDialog

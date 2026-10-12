@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Flag, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useSafeAction, useToast } from '../../components/Toast'
@@ -42,9 +43,9 @@ export function WorkoutPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <header className="page-title">
+        <p className="eyebrow">{formatDateJa(workout.date)}</p>
         <h1>{workout.title ?? 'トレーニング'}</h1>
-        <span className="muted">{formatDateJa(workout.date)}</span>
       </header>
       <RestTimerDisplay variant={active ? 'big' : 'bar'} />
       {exercises.map((e, i) => (
@@ -60,15 +61,18 @@ export function WorkoutPage() {
           }}
         />
       ))}
-      <button type="button" className="btn btn-block" onClick={() => setPicking(true)}>
-        ＋ 種目を追加
+      <button type="button" className="btn btn-add btn-block" aria-label="＋ 種目を追加" onClick={() => setPicking(true)}>
+        <Plus aria-hidden="true" />
+        種目を追加
       </button>
       {active ? (
         <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => setFinishing(true)}>
+          <Flag aria-hidden="true" />
           トレーニング終了
         </button>
       ) : (
         <button type="button" className="btn btn-block" onClick={saveAsRoutine}>
+          <Save aria-hidden="true" />
           マイメニューとして保存
         </button>
       )}
@@ -83,6 +87,7 @@ export function WorkoutPage() {
           }
         }}
       >
+        <Trash2 aria-hidden="true" />
         このトレーニングを削除
       </button>
       {picking && (

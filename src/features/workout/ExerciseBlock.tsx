@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { ChevronDown, ChevronUp, NotebookPen, Plus, Timer, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useSafeAction } from '../../components/Toast'
 import type { Settings } from '../../db/types'
@@ -34,38 +35,41 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
   const [noteOpen, setNoteOpen] = useState(false)
 
   return (
-    <section className="card" aria-label={exercise.name}>
+    <section className="card exercise-card" aria-label={exercise.name}>
       <div className="exercise-head">
         <h2>{exercise.name}</h2>
         <button type="button" className="icon-btn" aria-label={`${exercise.name}のメモ`} onClick={() => setNoteOpen(true)}>
-          📝
+          <NotebookPen aria-hidden="true" />
         </button>
         {!isFirst && (
           <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => run(() => moveExercise(we.id, -1))}>
-            ↑
+            <ChevronUp aria-hidden="true" />
           </button>
         )}
         {!isLast && (
           <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => run(() => moveExercise(we.id, 1))}>
-            ↓
+            <ChevronDown aria-hidden="true" />
           </button>
         )}
         <button
           type="button"
-          className="icon-btn"
+          className="icon-btn danger"
           aria-label={`${exercise.name}を削除`}
           onClick={() => {
             if (window.confirm(`${exercise.name}を削除しますか？`)) void run(() => removeExerciseFromWorkout(we.id))
           }}
         >
-          🗑
+          <Trash2 aria-hidden="true" />
         </button>
       </div>
-      <p className="muted">
-        休憩 {we.restSec}秒{previous && previous.length > 0 && ` ／ 前回 ${formatSets(exercise.logType, previous)}`}
+      <p className="exercise-meta">
+        <Timer aria-hidden="true" />
+        <span>
+          休憩 {we.restSec}秒{previous && previous.length > 0 && ` ／ 前回 ${formatSets(exercise.logType, previous)}`}
+        </span>
       </p>
       {(we.effort !== undefined || we.note) && (
-        <p className="muted">
+        <p className="exercise-note">
           {we.effort !== undefined && `きつさ ${we.effort} `}
           {we.note}
         </p>
@@ -87,8 +91,9 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
           }}
         />
       ))}
-      <button type="button" className="btn btn-ghost" onClick={() => run(() => addSet(we.id))}>
-        ＋ セット追加
+      <button type="button" className="btn btn-add" aria-label="＋ セット追加" onClick={() => run(() => addSet(we.id))}>
+        <Plus aria-hidden="true" />
+        セット追加
       </button>
       {noteOpen && (
         <ExerciseNoteDialog

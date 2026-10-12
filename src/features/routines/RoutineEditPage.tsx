@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { CalendarPlus, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { useSafeAction, useToast } from '../../components/Toast'
@@ -69,8 +70,9 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
           />
         )
       })}
-      <button type="button" className="btn btn-block" onClick={() => setPicking(true)}>
-        ＋ 種目を追加
+      <button type="button" className="btn btn-add btn-block" aria-label="＋ 種目を追加" onClick={() => setPicking(true)}>
+        <Plus aria-hidden="true" />
+        種目を追加
       </button>
       <button type="button" className="btn btn-primary btn-block" disabled={!name.trim()} onClick={save}>
         保存
@@ -92,6 +94,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
               if (ok) toast('予定に入れました')
             }}
           >
+            <CalendarPlus aria-hidden="true" />
             この日の予定にする
           </button>
           <button
@@ -101,6 +104,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
               if (window.confirm(`「${routine.name}」を削除しますか？`) && (await run(() => deleteRoutine(routine.id)))) navigate('/routines')
             }}
           >
+            <Trash2 aria-hidden="true" />
             このマイメニューを削除
           </button>
         </section>

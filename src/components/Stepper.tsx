@@ -1,3 +1,4 @@
+import { Minus, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 interface Props {
@@ -34,7 +35,7 @@ export function Stepper({ label, value: propValue, step, min = 0, unit, onChange
   return (
     <div className="stepper">
       <button type="button" aria-label={`${label}を減らす`} onClick={() => change(Math.max(min, round(latest.current - step)))}>
-        −
+        <Minus aria-hidden="true" />
       </button>
       {editing ? (
         <input
@@ -51,12 +52,12 @@ export function Stepper({ label, value: propValue, step, min = 0, unit, onChange
         />
       ) : (
         <button type="button" className="stepper-value" aria-label={`${label} ${value}${unit ?? ''}`} onClick={() => setEditing(true)}>
-          {value}
+          <span>{value}</span>
           {unit && <small>{unit}</small>}
         </button>
       )}
       <button type="button" aria-label={`${label}を増やす`} onClick={() => change(round(latest.current + step))}>
-        ＋
+        <Plus aria-hidden="true" />
       </button>
     </div>
   )

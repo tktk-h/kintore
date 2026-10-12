@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { CalendarX2 } from 'lucide-react'
+import { EmptyState } from '../../components/EmptyState'
 import { FACES } from '../../components/RatingPicker'
 import { useSafeAction } from '../../components/Toast'
 import { db } from '../../db/db'
@@ -34,7 +36,11 @@ export function DayDetailPage() {
   return (
     <div className="page">
       <h1>{formatDateJa(date)}</h1>
-      {empty && <p className="muted">この日の記録はありません</p>}
+      {empty && (
+        <EmptyState icon={CalendarX2}>
+          <p>この日の記録はありません</p>
+        </EmptyState>
+      )}
 
       {details.map(({ workout, exercises }) => (
         <section key={workout.id} className="card stack">
@@ -43,9 +49,9 @@ export function DayDetailPage() {
             <Link to={`/workout/${workout.id}`}>{workout.finishedAt === undefined ? '続ける' : '編集'}</Link>
           </div>
           {exercises.map(({ workoutExercise: we, exercise, sets }) => (
-            <div key={we.id}>
+            <div key={we.id} className="day-exercise">
               <strong>{exercise.name}</strong>
-              <ul className="list">
+              <ul className="set-list">
                 {sets
                   .filter((s) => s.done)
                   .map((s) => (
@@ -84,9 +90,9 @@ export function DayDetailPage() {
         {plan ? (
           <>
             <h2>予定：{plan.title}</h2>
-            <ul className="list">
+            <ul className="plan-list">
               {planNames.map((name, i) => (
-                <li key={i} className="muted">
+                <li key={i}>
                   {name}
                 </li>
               ))}

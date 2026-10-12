@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { DatabaseBackup, Download, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { DEFAULT_SETTINGS } from '../../db/types'
@@ -41,7 +42,10 @@ export function SettingsPage() {
     <div className="page">
       <h1>設定</h1>
       <section className="card stack">
-        <h2>入力</h2>
+        <h2 className="card-title">
+          <SlidersHorizontal aria-hidden="true" />
+          入力
+        </h2>
         <label className="field">
           重量の刻み幅
           <select value={settings.weightStep} onChange={(e) => run(() => saveSettings({ weightStep: Number(e.target.value) }))}>
@@ -65,10 +69,14 @@ export function SettingsPage() {
       </section>
 
       <section className="card stack">
-        <h2>バックアップ</h2>
+        <h2 className="card-title">
+          <DatabaseBackup aria-hidden="true" />
+          バックアップ
+        </h2>
         <p className="muted">データはこのiPhoneの中にだけ保存されています。機種変更に備えて、ときどき書き出してください。</p>
         {usage && <p className="muted">{usage}</p>}
         <button type="button" className="btn btn-primary btn-block" onClick={exportData}>
+          <Download aria-hidden="true" />
           バックアップを書き出す
         </button>
         <label className="field">

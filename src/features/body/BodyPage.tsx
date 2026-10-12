@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Stepper } from '../../components/Stepper'
@@ -17,8 +18,10 @@ export function BodyPage() {
 
   return (
     <div className="page">
-      <h1>体の記録</h1>
-      <p className="muted">{formatDateJa(date)}</p>
+      <header className="page-title">
+        <p className="eyebrow">{formatDateJa(date)}</p>
+        <h1>体の記録</h1>
+      </header>
       {log !== undefined && latest !== undefined && (
         <BodyForm key={`${date}-${log?.id ?? 'new'}`} date={date} log={log} latest={latest} />
       )}
@@ -54,20 +57,21 @@ function BodyForm({ date, log, latest }: FormProps) {
   return (
     <section className="card stack">
       <div className="row between">
-        <span>体重</span>
+        <span className="row-label">体重</span>
         <Stepper label="体重" unit="kg" step={0.1} value={weight} onChange={setWeight} />
       </div>
       <div className="row between">
-        <span>体脂肪率</span>
+        <span className="row-label">体脂肪率</span>
         {fat === undefined ? (
-          <button type="button" className="btn btn-ghost" onClick={() => setFat(15)}>
-            ＋ 体脂肪率を追加
+          <button type="button" className="btn btn-sm" aria-label="＋ 体脂肪率を追加" onClick={() => setFat(15)}>
+            <Plus aria-hidden="true" />
+            体脂肪率を追加
           </button>
         ) : (
           <div className="row">
             <Stepper label="体脂肪率" unit="%" step={0.1} value={fat} onChange={setFat} />
             <button type="button" className="icon-btn" aria-label="体脂肪率を外す" onClick={() => setFat(undefined)}>
-              ×
+              <X aria-hidden="true" />
             </button>
           </div>
         )}
@@ -88,6 +92,7 @@ function BodyForm({ date, log, latest }: FormProps) {
         <>
           <img className="photo" src={photo} alt="体の写真" />
           <button type="button" className="btn btn-danger" onClick={() => setPhoto(undefined)}>
+            <Trash2 aria-hidden="true" />
             写真を外す
           </button>
         </>

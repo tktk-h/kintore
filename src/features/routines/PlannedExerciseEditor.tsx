@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp, Plus, Timer, Trash2, X } from 'lucide-react'
 import { SetInputs } from '../../components/SetInputs'
 import { Stepper } from '../../components/Stepper'
 import type { Exercise, PlannedExercise, Settings } from '../../db/types'
@@ -17,25 +18,28 @@ export function PlannedExerciseEditor({ value, exercise, settings, isFirst, isLa
   const updateSet = (index: number, changes: Partial<PlannedExercise['sets'][number]>) =>
     onChange({ ...value, sets: value.sets.map((s, i) => (i === index ? { ...s, ...changes } : s)) })
   return (
-    <section className="card stack" aria-label={exercise.name}>
+    <section className="card exercise-card" aria-label={exercise.name}>
       <div className="exercise-head">
         <h2>{exercise.name}</h2>
         {!isFirst && (
           <button type="button" className="icon-btn" aria-label={`${exercise.name}を上へ`} onClick={() => onMove(-1)}>
-            ↑
+            <ChevronUp aria-hidden="true" />
           </button>
         )}
         {!isLast && (
           <button type="button" className="icon-btn" aria-label={`${exercise.name}を下へ`} onClick={() => onMove(1)}>
-            ↓
+            <ChevronDown aria-hidden="true" />
           </button>
         )}
-        <button type="button" className="icon-btn" aria-label={`${exercise.name}を削除`} onClick={onRemove}>
-          🗑
+        <button type="button" className="icon-btn danger" aria-label={`${exercise.name}を削除`} onClick={onRemove}>
+          <Trash2 aria-hidden="true" />
         </button>
       </div>
-      <div className="row">
-        <span className="muted">休憩</span>
+      <div className="rest-row">
+        <span className="exercise-meta">
+          <Timer aria-hidden="true" />
+          休憩
+        </span>
         <Stepper label="休憩時間" unit="秒" step={15} value={value.restSec} onChange={(restSec) => onChange({ ...value, restSec })} />
       </div>
       {value.sets.map((s, i) => (
@@ -48,16 +52,18 @@ export function PlannedExerciseEditor({ value, exercise, settings, isFirst, isLa
             aria-label={`${i + 1}セット目を削除`}
             onClick={() => onChange({ ...value, sets: value.sets.filter((_, j) => j !== i) })}
           >
-            ×
+            <X aria-hidden="true" />
           </button>
         </div>
       ))}
       <button
         type="button"
-        className="btn btn-ghost"
+        className="btn btn-add"
+        aria-label="＋ セット追加"
         onClick={() => onChange({ ...value, sets: [...value.sets, { ...(value.sets[value.sets.length - 1] ?? {}) }] })}
       >
-        ＋ セット追加
+        <Plus aria-hidden="true" />
+        セット追加
       </button>
     </section>
   )

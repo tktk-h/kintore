@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { BODY_PART_COLORS, BODY_PART_LABELS, BODY_PARTS } from '../../db/types'
@@ -24,13 +25,13 @@ export function Calendar() {
     <section className="card">
       <div className="calendar-head">
         <button type="button" aria-label="前の月" onClick={() => shift(-1)}>
-          ＜
+          <ChevronLeft aria-hidden="true" />
         </button>
         <h2>
           {ym.y}年{ym.m + 1}月
         </h2>
         <button type="button" aria-label="次の月" onClick={() => shift(1)}>
-          ＞
+          <ChevronRight aria-hidden="true" />
         </button>
       </div>
       <div className="calendar-grid">
@@ -48,7 +49,7 @@ export function Calendar() {
               <button
                 key={key}
                 type="button"
-                className={`calendar-day ${key === today ? 'today' : ''}`}
+                className={`calendar-day ${key === today ? 'today' : ''} ${info[key]?.bodyParts.length ? 'has-log' : ''}`}
                 aria-label={formatDateJa(key)}
                 onClick={() => navigate(`/day/${key}`)}
               >
