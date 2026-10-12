@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../db/db'
 import { getBodyLog, saveBodyLog } from '../repo/body'
 import { createRoutine, listRoutines } from '../repo/routines'
 import { saveSettings } from '../repo/settings'
 import { resetDb } from '../test/db'
-import { exportBackup, importBackup, parseBackup } from './backup'
+import { exportBackup, importBackup, parseBackup, shareOrDownload } from './backup'
 
 beforeEach(resetDb)
 
@@ -71,5 +71,40 @@ describe('backup', () => {
     await createRoutine({ name: '残るはず', exercises: [] })
     await expect(importBackup(parseBackup(JSON.stringify(bad)))).rejects.toThrow()
     expect((await listRoutines()).map((r) => r.name)).toEqual(['残るはず'])
+  })
+})
+
+describe('shareOrDownload', () => {
+  const share = vi.fn()
+  let click: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    share.mockReset()
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true })
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+    Object.defineProperty(URL, 'createObjectURL', { value: () => 'blob:x', configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: () => {}, configurable: true })
+    click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    for (const k of ['canShare', 'share'] as const) delete (navigator as unknown as Record<string, unknown>)[k]
+    vi.restoreAllMocks()
+  })
+
+  it('共有シートを閉じた（キャンセルした）ときは失敗にしない', async () => {
+    share.mockRejectedValue(new DOMException('cancel', 'AbortError'))
+    await expect(shareOrDownload('a.json', '{}')).resolves.toBeUndefined()
+    expect(click).not.toHaveBeenCalled()
+  })
+
+  it('共有が許可されなかったときはダウンロードにする', async () => {
+    share.mockRejectedValue(new DOMException('gesture', 'NotAllowedError'))
+    await shareOrDownload('a.json', '{}')
+    expect(click).toHaveBeenCalledTimes(1)
+  })
+
+  it('それ以外の失敗はそのまま投げる', async () => {
+    share.mockRejectedValue(new Error('boom'))
+    await expect(shareOrDownload('a.json', '{}')).rejects.toThrow('boom')
   })
 })

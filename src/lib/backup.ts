@@ -104,8 +104,16 @@ export function backupFileName(now = new Date()): string {
 export async function shareOrDownload(name: string, text: string): Promise<void> {
   const file = new File([text], name, { type: 'application/json' })
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file] })
-    return
+    try {
+      await navigator.share({ files: [file] })
+      return
+    } catch (e) {
+      const name = (e as { name?: unknown } | null)?.name
+      // 共有シートを閉じただけなら失敗ではない
+      if (name === 'AbortError') return
+      // 書き出しに時間がかかってタップ扱いが切れたときなどはダウンロードにする
+      if (name !== 'NotAllowedError') throw e
+    }
   }
   const url = URL.createObjectURL(file)
   const a = document.createElement('a')
