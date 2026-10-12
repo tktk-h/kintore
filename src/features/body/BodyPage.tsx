@@ -1,0 +1,87 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router'
+import { Stepper } from '../../components/Stepper'
+import { useSafeAction, useToast } from '../../components/Toast'
+import type { BodyLog } from '../../db/types'
+import { formatDateJa, todayKey } from '../../lib/dates'
+import { resizeImage } from '../../lib/image'
+import { getBodyLog, getLatestBodyValues, saveBodyLog } from '../../repo/body'
+import { PhotoCompare } from './PhotoCompare'
+
+export function BodyPage() {
+  const [params] = useSearchParams()
+  const date = params.get('date') ?? todayKey()
+  const log = useLiveQuery(() => getBodyLog(date).then((l) => l ?? null), [date])
+  const latest = useLiveQuery(() => getLatestBodyValues(date), [date])
+
+  return (
+    <div className="page">
+      <h1>体の記録</h1>
+      <p className="muted">{formatDateJa(date)}</p>
+      {log !== undefined && latest !== undefined && (
+        <BodyForm key={`${date}-${log?.id ?? 'new'}`} date={date} log={log} latest={latest} />
+      )}
+      <PhotoCompare />
+    </div>
+  )
+}
+
+interface FormProps {
+  date: string
+  log: BodyLog | null
+  latest: { weightKg?: number; bodyFatPct?: number }
+}
+
+function BodyForm({ date, log, latest }: FormProps) {
+  const [weight, setWeight] = useState(log?.weightKg ?? latest.weightKg ?? 60)
+  const initialFat = log?.bodyFatPct ?? latest.bodyFatPct
+  const [fat, setFat] = useState<number | undefined>(initialFat)
+  const [photo, setPhoto] = useState(log?.photo)
+  const run = useSafeAction()
+  const toast = useToast()
+
+  const onPhoto = async (file: File | undefined) => {
+    if (!file) return
+    let resized = ''
+    if (await run(async () => (resized = await resizeImage(file)), '写真を読み込めませんでした')) setPhoto(resized)
+  }
+
+  const save = async () => {
+    if (await run(() => saveBodyLog(date, { weightKg: weight, bodyFatPct: fat, photo }))) toast('保存しました')
+  }
+
+  return (
+    <section className="card stack">
+      <div className="row between">
+        <span>体重</span>
+        <Stepper label="体重" unit="kg" step={0.1} value={weight} onChange={setWeight} />
+      </div>
+      <div className="row between">
+        <span>体脂肪率</span>
+        {fat === undefined ? (
+          <button type="button" className="btn btn-ghost" onClick={() => setFat(15)}>
+            ＋ 体脂肪率を追加
+          </button>
+        ) : (
+          <Stepper label="体脂肪率" unit="%" step={0.1} value={fat} onChange={setFat} />
+        )}
+      </div>
+      <label className="field">
+        写真（任意）
+        <input type="file" accept="image/*" onChange={(e) => onPhoto(e.target.files?.[0])} />
+      </label>
+      {photo && (
+        <>
+          <img className="photo" src={photo} alt="体の写真" />
+          <button type="button" className="btn btn-danger" onClick={() => setPhoto(undefined)}>
+            写真を外す
+          </button>
+        </>
+      )}
+      <button type="button" className="btn btn-primary btn-block" onClick={save}>
+        保存
+      </button>
+    </section>
+  )
+}

@@ -1,6 +1,7 @@
 import { HashRouter, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { ToastProvider } from './components/Toast'
+import { BodyPage } from './features/body/BodyPage'
 import { DayDetailPage } from './features/calendar/DayDetailPage'
 import { ExerciseEditPage } from './features/exercises/ExerciseEditPage'
 import { ExerciseListPage } from './features/exercises/ExerciseListPage'
@@ -21,6 +22,7 @@ export function App() {
               <Route path="exercises/:id" element={<ExerciseEditPage />} />
               <Route path="workout/:id" element={<WorkoutPage />} />
               <Route path="day/:date" element={<DayDetailPage />} />
+              <Route path="body" element={<BodyPage />} />
             </Route>
           </Routes>
         </HashRouter>
