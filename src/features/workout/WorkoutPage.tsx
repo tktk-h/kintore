@@ -31,8 +31,8 @@ export function WorkoutPage() {
   const [picking, setPicking] = useState(false)
   const [finishing, setFinishing] = useState(false)
 
-  if (detail === undefined) return <div className="page">読み込み中…</div>
-  if (detail === null) return <div className="page">トレーニングが見つかりません</div>
+  if (detail === undefined) return <div className="page"><PageHeader backTo="/" title="読み込み中…" /></div>
+  if (detail === null) return <div className="page"><PageHeader backTo="/" title="トレーニングが見つかりません" /></div>
 
   const { workout, exercises } = detail
   const active = workout.finishedAt === undefined

@@ -30,7 +30,7 @@ export function DayDetailPage() {
   const [routineId, setRoutineId] = useState('')
   const run = useSafeAction()
 
-  if (!data) return <div className="page">読み込み中…</div>
+  if (!data) return <div className="page"><PageHeader backTo="/" title="読み込み中…" /></div>
   const { details, body, plan, planNames } = data
   const empty = details.length === 0 && !body && !plan
 

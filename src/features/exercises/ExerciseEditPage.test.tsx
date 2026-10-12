@@ -16,5 +16,6 @@ describe('ExerciseEditPage', () => {
     renderPage('/exercises/:id', '/exercises/no-such', <ExerciseEditPage />)
     expect(await screen.findByText('種目が見つかりません')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: '名前' })).toBeNull()
+expect(screen.getByRole('button', { name: '戻る' })).toBeInTheDocument()
   })
 })

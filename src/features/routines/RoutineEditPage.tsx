@@ -17,7 +17,7 @@ import { PlannedExerciseEditor } from './PlannedExerciseEditor'
 export function RoutineEditPage() {
   const { id } = useParams()
   const routine = useLiveQuery(() => (id ? getRoutine(id).then((r) => r ?? null) : Promise.resolve(null)), [id])
-  if (routine === undefined) return <div className="page">読み込み中…</div>
+  if (routine === undefined) return <div className="page"><PageHeader backTo="/routines" title="読み込み中…" /></div>
   return <RoutineForm key={id ?? 'new'} routine={routine} />
 }
 
