@@ -17,6 +17,8 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; }
 body { padding-top: env(safe-area-inset-top); }
+/* ステータスバー（時計）の下に中身が透けて見えないように、上端を背景色で覆う。ダイアログ・トーストより下 */
+body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: var(--bg); z-index: 40; pointer-events: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 h1 { font-size: 1.4rem; margin: 0; }
@@ -77,7 +79,7 @@ input[type='text'], input[type='search'], input[type='date'], select, textarea {
 
 .timer-bar { position: fixed; left: 8px; right: 8px; z-index: 30; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px); display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface-2); border: 1px solid var(--accent); border-radius: 14px; }
 .timer-bar .timer-time { flex: 1; font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-.timer-big { position: sticky; top: 0; z-index: 10; text-align: center; padding: 12px; background: var(--surface-2); border: 2px solid var(--accent); border-radius: var(--radius); }
+.timer-big { position: sticky; top: env(safe-area-inset-top); z-index: 10; text-align: center; padding: 12px; background: var(--surface-2); border: 2px solid var(--accent); border-radius: var(--radius); }
 .timer-big .timer-time { display: block; font-size: 3.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .timer-big .row { justify-content: center; }
 .timer-bar button, .timer-big button { min-height: 40px; padding: 0 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
