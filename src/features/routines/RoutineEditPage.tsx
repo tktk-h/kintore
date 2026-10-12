@@ -83,7 +83,7 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
           <button
             type="button"
             className="btn"
-            disabled={!assignDate}
+            disabled={!assignDate || !name.trim()}
             onClick={async () => {
               const ok = await run(async () => {
                 await updateRoutine(routine.id, input())
@@ -111,8 +111,10 @@ function RoutineForm({ routine }: { routine: Routine | null }) {
           onClose={() => setPicking(false)}
           onPick={async (exercise) => {
             setPicking(false)
-            const sets = await suggestSets(exercise)
-            setExercises((list) => [...list, { exerciseId: exercise.id, restSec: exercise.defaultRestSec, sets }])
+            await run(async () => {
+              const sets = await suggestSets(exercise)
+              setExercises((list) => [...list, { exerciseId: exercise.id, restSec: exercise.defaultRestSec, sets }])
+            }, '種目を追加できませんでした')
           }}
         />
       )}

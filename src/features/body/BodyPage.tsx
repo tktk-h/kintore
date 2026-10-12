@@ -64,12 +64,25 @@ function BodyForm({ date, log, latest }: FormProps) {
             ＋ 体脂肪率を追加
           </button>
         ) : (
-          <Stepper label="体脂肪率" unit="%" step={0.1} value={fat} onChange={setFat} />
+          <div className="row">
+            <Stepper label="体脂肪率" unit="%" step={0.1} value={fat} onChange={setFat} />
+            <button type="button" className="icon-btn" aria-label="体脂肪率を外す" onClick={() => setFat(undefined)}>
+              ×
+            </button>
+          </div>
         )}
       </div>
       <label className="field">
         写真（任意）
-        <input type="file" accept="image/*" onChange={(e) => onPhoto(e.target.files?.[0])} />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            void onPhoto(e.target.files?.[0])
+            // 同じ写真を選び直しても onChange が来るように空にしておく
+            e.target.value = ''
+          }}
+        />
       </label>
       {photo && (
         <>

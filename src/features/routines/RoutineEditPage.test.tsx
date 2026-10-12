@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { listRoutines } from '../../repo/routines'
+import { createRoutine, listRoutines } from '../../repo/routines'
 import { resetDb } from '../../test/db'
 import { renderPage } from '../../test/render'
 import { RoutineEditPage } from './RoutineEditPage'
@@ -22,5 +22,14 @@ describe('RoutineEditPage', () => {
     expect(routine.name).toBe('胸の日')
     expect(routine.exercises[0]).toMatchObject({ exerciseId: 'ex-bench-press', restSec: 120 })
     expect(routine.exercises[0].sets[0]).toEqual({ weight: 22.5, reps: 10 })
+  })
+
+  it('名前が空のときは日付に割り当てられない', async () => {
+    const r = await createRoutine({ name: '胸の日', exercises: [] })
+    renderPage('/routines/:id', `/routines/${r.id}`, <RoutineEditPage />)
+    const assign = await screen.findByRole('button', { name: 'この日の予定にする' })
+    expect(assign).toBeEnabled()
+    await userEvent.clear(screen.getByRole('textbox', { name: '名前' }))
+    expect(assign).toBeDisabled()
   })
 })

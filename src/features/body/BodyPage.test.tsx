@@ -26,4 +26,14 @@ describe('BodyPage', () => {
     await waitFor(async () => expect(await getBodyLog('2026-10-12')).toBeDefined())
     expect((await getBodyLog('2026-10-12'))?.bodyFatPct).toBeUndefined()
   })
+
+  it('体脂肪率を外して保存できる', async () => {
+    await saveBodyLog('2026-10-12', { weightKg: 70, bodyFatPct: 15 })
+    open('2026-10-12')
+    await userEvent.click(await screen.findByRole('button', { name: '体脂肪率を外す' }))
+    expect(screen.getByRole('button', { name: '＋ 体脂肪率を追加' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(async () => expect((await getBodyLog('2026-10-12'))?.bodyFatPct).toBeUndefined())
+    expect((await getBodyLog('2026-10-12'))?.weightKg).toBe(70)
+  })
 })
