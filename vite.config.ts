@@ -33,5 +33,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     passWithNoTests: true,
+    // jsdom の画面テストは PC の負荷で遅くなることがあるため、既定の 5 秒より長めにする
+    testTimeout: 15000,
   },
 })
