@@ -2,8 +2,10 @@ import Dexie, { type EntityTable } from 'dexie'
 import { seedExercises } from './seedExercises'
 import type {
   BodyLog,
+  ChatMessage,
   Exercise,
   PlannedWorkout,
+  Profile,
   Routine,
   SetRecord,
   Settings,
@@ -32,6 +34,8 @@ export class KintoreDB extends Dexie {
   sets!: EntityTable<SetRecord, 'id'>
   bodyLogs!: EntityTable<BodyLog, 'id'>
   settings!: EntityTable<Settings, 'id'>
+  profile!: EntityTable<Profile, 'id'>
+  chatMessages!: EntityTable<ChatMessage, 'id'>
 
   constructor() {
     super('kintore')

@@ -10,8 +10,12 @@ const TABLES = [
   'sets',
   'bodyLogs',
   'settings',
+  'profile',
+  'chatMessages',
 ] as const
 type TableName = (typeof TABLES)[number]
+/** 後から追加した表。古いバックアップにはないことがある */
+const OPTIONAL_TABLES: readonly TableName[] = ['profile', 'chatMessages']
 
 type Row = Record<string, unknown>
 const isObject = (v: unknown): v is Row => typeof v === 'object' && v !== null
@@ -34,6 +38,11 @@ const CHECKS: Record<TableName, (r: Row) => boolean> = {
     bool(r.deleted) && str(r.workoutId) && str(r.workoutExerciseId) && num(r.order) && bool(r.done),
   bodyLogs: (r) => bool(r.deleted) && str(r.date),
   settings: (r) => r.id === 'app' && num(r.weightStep) && num(r.repStep),
+  profile: (r) =>
+    r.id === 'me' && str(r.goal) && str(r.experience) && num(r.daysPerWeek) && num(r.minutesPerSession) &&
+    Array.isArray(r.weekdays) && Array.isArray(r.equipment),
+  chatMessages: (r) =>
+    bool(r.deleted) && (r.role === 'user' || r.role === 'coach') && str(r.text) && num(r.createdAt),
 }
 
 export interface BackupFile {
@@ -64,12 +73,15 @@ export function parseBackup(text: string): BackupFile {
   if (!file || file.app !== 'kintore' || typeof file.data !== 'object' || file.data === null) {
     throw new Error('このアプリのバックアップファイルではありません')
   }
+  const data = { ...(file.data as Record<string, unknown>) }
   for (const t of TABLES) {
-    const rows = (file.data as Record<string, unknown>)[t]
+    // フェーズ1b より前のバックアップには、プロフィールとチャットの表がない（空として扱う）
+    if (data[t] === undefined && OPTIONAL_TABLES.includes(t)) data[t] = []
+    const rows = data[t]
     const ok = Array.isArray(rows) && rows.every((r) => isObject(r) && typeof r.id === 'string' && CHECKS[t](r))
     if (!ok) throw new Error(`バックアップファイルが壊れています（${t}）`)
   }
-  return file as BackupFile
+  return { ...(file as BackupFile), data: data as BackupFile['data'] }
 }
 
 /** 今のデータをすべて消して、バックアップの内容に置き換える */

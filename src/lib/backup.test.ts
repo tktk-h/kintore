@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../db/db'
 import { getBodyLog, saveBodyLog } from '../repo/body'
 import { createRoutine, listRoutines } from '../repo/routines'
-import { saveSettings } from '../repo/settings'
+import { addChatMessage, listChatMessages } from '../repo/chat'
+import { getProfile, saveProfile } from '../repo/profile'
+import { getSettings, saveSettings } from '../repo/settings'
 import { resetDb } from '../test/db'
 import { exportBackup, importBackup, parseBackup, shareOrDownload } from './backup'
 
@@ -35,6 +37,48 @@ describe('backup', () => {
     const base = { id: 'w', createdAt: 0, updatedAt: 0, deleted: false, date: '2026-10-12', startedAt: 0 }
     backup.data.workouts = [base, { ...base, id: 'w2', pausedAt: 10, pausedMs: 5000 }]
     expect(parseBackup(JSON.stringify(backup)).data.workouts).toHaveLength(2)
+  })
+
+  it('プロフィールとチャットも書き出して戻せる', async () => {
+    await saveProfile({
+      goal: 'strength', experience: 'over_3y', daysPerWeek: 3, minutesPerSession: 90,
+      weekdays: [1, 3, 5], equipment: ['gym_free'], injuries: '腰', baselines: [],
+    })
+    await addChatMessage({ role: 'user', text: '来週のメニューを作って' })
+    await saveSettings({ coachPasscode: 'secret' })
+    const text = JSON.stringify(await exportBackup())
+
+    await resetDb()
+    await importBackup(parseBackup(text))
+    expect(await getProfile()).toMatchObject({ goal: 'strength', injuries: '腰' })
+    expect((await listChatMessages()).map((m) => m.text)).toEqual(['来週のメニューを作って'])
+    expect(await getSettings()).toMatchObject({ coachPasscode: 'secret' })
+  })
+
+  it('プロフィールとチャットの表がない古いバックアップも読み込める', async () => {
+    await createRoutine({ name: '胸の日', exercises: [] })
+    const backup = await exportBackup()
+    const { profile: _p, chatMessages: _c, ...oldData } = backup.data
+    const text = JSON.stringify({ ...backup, data: oldData })
+
+    await saveProfile({
+      goal: 'health', experience: 'none', daysPerWeek: 2, minutesPerSession: 30,
+      weekdays: [], equipment: ['bodyweight'], injuries: '', baselines: [],
+    })
+    await addChatMessage({ role: 'user', text: '消える' })
+    const file = parseBackup(text)
+    expect(file.data.profile).toEqual([])
+    expect(file.data.chatMessages).toEqual([])
+    await importBackup(file)
+    expect((await listRoutines()).map((r) => r.name)).toEqual(['胸の日'])
+    expect(await getProfile()).toBeUndefined()
+    expect(await listChatMessages()).toEqual([])
+  })
+
+  it('チャットの形がおかしければエラー', async () => {
+    const backup = await exportBackup()
+    const broken = { ...backup, data: { ...backup.data, chatMessages: [{ id: 'c', deleted: false, role: 'robot', text: 'x', createdAt: 0, updatedAt: 0 }] } }
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('バックアップファイルが壊れています（chatMessages）')
   })
 
   it('JSONでなければエラー', () => {

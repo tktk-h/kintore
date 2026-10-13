@@ -1,3 +1,5 @@
+import type { Proposal, SplitType } from '../coach/types'
+
 export type BodyPart = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'abs' | 'cardio'
 export type Equipment = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'other'
 /**
@@ -67,6 +69,10 @@ export interface PlannedExercise {
   exerciseId: string
   restSec: number
   sets: SetValues[]
+  /** AIコーチの案から入れたときの枠（例：'upper.1'） */
+  slot?: string
+  /** 目標回数の幅 */
+  repRange?: [number, number]
 }
 
 export interface Routine extends BaseRecord {
@@ -74,8 +80,8 @@ export interface Routine extends BaseRecord {
   exercises: PlannedExercise[]
 }
 
-/** 1bで 'ai' を追加する */
-export type PlanSource = 'routine' | 'manual'
+/** ai: AIコーチの案を反映したもの */
+export type PlanSource = 'routine' | 'manual' | 'ai'
 
 export interface PlannedWorkout extends BaseRecord {
   date: string
@@ -130,6 +136,8 @@ export interface Settings {
   id: 'app'
   weightStep: number
   repStep: number
+  /** AIコーチ（サーバー）に送る合言葉 */
+  coachPasscode?: string
 }
 
 export const DEFAULT_SETTINGS: Settings = { id: 'app', weightStep: 2.5, repStep: 1 }
@@ -169,4 +177,35 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   weight_reps: '重量×回数',
   reps: '回数のみ',
   time_distance: '時間・距離',
+}
+
+export type Goal = 'hypertrophy' | 'strength' | 'fat_loss' | 'health'
+export type Experience = 'none' | 'under_1y' | 'y1_3' | 'over_3y'
+export type EquipmentAccess = 'gym_free' | 'gym_machine' | 'home_dumbbell' | 'bodyweight'
+export interface BaselineLift { exerciseId: string; weight: number; reps: number }
+export interface Profile {
+  id: 'me'
+  goal: Goal
+  experience: Experience
+  /** 1〜7 */
+  daysPerWeek: number
+  /** 例：60 */
+  minutesPerSession: number
+  /** 0=日〜6=土 */
+  weekdays: number[]
+  equipment: EquipmentAccess[]
+  /** 自由記入（空でもよい） */
+  injuries: string
+  /** 任意 */
+  baselines: BaselineLift[]
+  /** チャットで変更されたとき */
+  preferredSplit?: SplitType
+  updatedAt: number
+}
+export interface ChatMessage extends BaseRecord {
+  role: 'user' | 'coach'
+  text: string
+  /** 重さ計算・チェック済みのメニュー案 */
+  proposal?: Proposal
+  appliedAt?: number
 }
