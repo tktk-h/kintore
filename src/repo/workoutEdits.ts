@@ -10,8 +10,16 @@ export async function updateSet(id: string, values: SetValues): Promise<void> {
   await db.sets.update(id, { ...values, ...touch() })
 }
 
-export async function setDone(id: string, done: boolean): Promise<void> {
-  await db.sets.update(id, { done, doneAt: done ? Date.now() : undefined, ...touch() })
+/** セットの完了を切り替える。チェックしたことでその種目の全セットが完了したら true（「きつさは？」を出す合図） */
+export async function setDone(id: string, done: boolean): Promise<boolean> {
+  return db.transaction('rw', db.sets, async () => {
+    await db.sets.update(id, { done, doneAt: done ? Date.now() : undefined, ...touch() })
+    if (!done) return false
+    const set = await db.sets.get(id)
+    if (!set) return false
+    const sets = (await db.sets.where('workoutExerciseId').equals(set.workoutExerciseId).toArray()).filter((s) => !s.deleted)
+    return sets.every((s) => s.done)
+  })
 }
 
 export async function addSet(workoutExerciseId: string): Promise<void> {

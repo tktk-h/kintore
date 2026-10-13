@@ -16,6 +16,7 @@ import {
   updateSet,
 } from '../../repo/workoutEdits'
 import type { WorkoutExerciseDetail } from '../../repo/workouts'
+import { EffortPrompt } from './EffortPrompt'
 import { ExerciseNoteDialog } from './ExerciseNoteDialog'
 import { SetRow } from './SetRow'
 
@@ -34,6 +35,8 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
   const previous = useLiveQuery(() => getPreviousSets(exercise.id, before), [exercise.id, before])
   const run = useSafeAction()
   const [noteOpen, setNoteOpen] = useState(false)
+  // 最後のセットにチェックしたら「きつさは？」を出す（すでにきつさがあれば出さない）
+  const [askEffort, setAskEffort] = useState(false)
 
   return (
     <CollapsibleCard
@@ -94,7 +97,11 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
           settings={settings}
           onChange={(changes) => void run(() => updateSet(s.id, changes))}
           onToggle={(done) => {
-            void run(() => setDone(s.id, done))
+            if (!done) setAskEffort(false)
+            void run(async () => {
+              // 速く続けてチェックしても判定がずれないよう、保存後のDBの状態で判断する
+              if ((await setDone(s.id, done)) && done) setAskEffort(true)
+            })
             onSetDone(done)
           }}
           onDelete={() => {
@@ -102,6 +109,14 @@ export function ExerciseBlock({ entry, before, settings, isFirst, isLast, onSetD
           }}
         />
       ))}
+      {askEffort && we.effort === undefined && (
+        <EffortPrompt
+          onDismiss={() => setAskEffort(false)}
+          onPick={async (effort) => {
+            if (await run(() => updateExerciseNote(we.id, { effort, note: we.note }))) setAskEffort(false)
+          }}
+        />
+      )}
       <button type="button" className="btn btn-add" aria-label="＋ セット追加" onClick={() => run(() => addSet(we.id))}>
         <Plus aria-hidden="true" />
         セット追加

@@ -109,3 +109,5 @@ body:has(.coach-composer) .timer-bar { bottom: calc(var(--nav-h) + env(safe-area
 }
 .baseline-row input[type='number']:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .form-error { color: var(--danger); font-size: var(--fs-sub); font-weight: 700; }
+/* 一番下へ送るとき、固定の入力欄と下のメニューに隠れないようにする */
+.chat-end { scroll-margin-bottom: calc(var(--nav-h) + 130px + env(safe-area-inset-bottom)); }

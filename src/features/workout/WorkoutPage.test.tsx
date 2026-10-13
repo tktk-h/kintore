@@ -147,3 +147,53 @@ describe('WorkoutPage', () => {
     })
   })
 })
+
+describe('きつさの入力（最後のセットのあと）', () => {
+  const effortOf = async () => (await getWorkoutDetail(workoutId))!.exercises[0].workoutExercise.effort
+
+  it('最後のセットにチェックすると「きつさは？」を出し、押すと保存して閉じる', async () => {
+    open()
+    await userEvent.click(await screen.findByRole('checkbox', { name: '1セット目 完了' }))
+    await waitFor(async () => expect((await getWorkoutDetail(workoutId))!.exercises[0].sets[0].done).toBe(true))
+    // 途中のセットでは出ない
+    expect(screen.queryByRole('group', { name: 'きつさは？' })).toBeNull()
+    await userEvent.click(screen.getByRole('checkbox', { name: '2セット目 完了' }))
+    const prompt = await screen.findByRole('group', { name: 'きつさは？' })
+    expect(prompt).toHaveTextContent('楽')
+    expect(prompt).toHaveTextContent('限界')
+    await userEvent.click(screen.getByRole('button', { name: 'きつさ 4' }))
+    await waitFor(async () => expect(await effortOf()).toBe(4))
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'きつさは？' })).toBeNull())
+  })
+
+  it('メモは消さずに残す', async () => {
+    const we = (await getWorkoutDetail(workoutId))!.exercises[0].workoutExercise
+    await db.workoutExercises.update(we.id, { note: 'グリップ幅を変えた' })
+    open()
+    await userEvent.click(await screen.findByRole('checkbox', { name: '1セット目 完了' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '2セット目 完了' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'きつさ 2' }))
+    await waitFor(async () => expect(await effortOf()).toBe(2))
+    expect((await getWorkoutDetail(workoutId))!.exercises[0].workoutExercise.note).toBe('グリップ幅を変えた')
+  })
+
+  it('×で閉じられる（保存しない）', async () => {
+    open()
+    await userEvent.click(await screen.findByRole('checkbox', { name: '1セット目 完了' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '2セット目 完了' }))
+    await screen.findByRole('group', { name: 'きつさは？' })
+    await userEvent.click(screen.getByRole('button', { name: 'きつさの入力を閉じる' }))
+    expect(screen.queryByRole('group', { name: 'きつさは？' })).toBeNull()
+    expect(await effortOf()).toBeUndefined()
+  })
+
+  it('すでにきつさがあれば出さない', async () => {
+    const we = (await getWorkoutDetail(workoutId))!.exercises[0].workoutExercise
+    await db.workoutExercises.update(we.id, { effort: 3 })
+    open()
+    await userEvent.click(await screen.findByRole('checkbox', { name: '1セット目 完了' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '2セット目 完了' }))
+    await waitFor(async () => expect((await getWorkoutDetail(workoutId))!.exercises[0].sets[1].done).toBe(true))
+    expect(screen.queryByRole('group', { name: 'きつさは？' })).toBeNull()
+  })
+})

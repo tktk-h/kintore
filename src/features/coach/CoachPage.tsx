@@ -148,7 +148,7 @@ export function CoachPage({ send = sendToCoach }: Props) {
           </div>
         </div>
       )}
-      <div ref={endRef} />
+      <div ref={endRef} className="chat-end" />
 
       <form className="coach-composer" onSubmit={submit}>
         {!online && <p className="composer-note">オフラインのため送信できません。電波のよい所で送ってください。</p>}

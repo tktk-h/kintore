@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { exportBackup } from '../../lib/backup'
+import { addChatMessage, listChatMessages } from '../../repo/chat'
 import { createRoutine, listRoutines } from '../../repo/routines'
 import { getSettings } from '../../repo/settings'
 import { resetDb } from '../../test/db'
@@ -43,5 +44,37 @@ describe('SettingsPage', () => {
     const file = new File(['broken'], 'backup.json', { type: 'application/json' })
     await userEvent.upload(await screen.findByLabelText('バックアップを読み込む'), file)
     expect(await screen.findByRole('alert')).toHaveTextContent('バックアップファイルを読み込めませんでした')
+  })
+})
+
+describe('SettingsPage のAIコーチ', () => {
+  it('合言葉を保存すると「設定済み」になる', async () => {
+    open()
+    const input = await screen.findByLabelText('合言葉')
+    expect(input).toHaveAttribute('type', 'password')
+    expect(screen.queryByText('設定済み')).toBeNull()
+    await userEvent.type(input, ' himitsu ')
+    await userEvent.click(screen.getByRole('button', { name: '合言葉を保存' }))
+    await waitFor(async () => expect((await getSettings()).coachPasscode).toBe('himitsu'))
+    expect(await screen.findByText('設定済み')).toBeInTheDocument()
+    expect(input).toHaveValue('')
+  })
+
+  it('プロフィールの編集へ移れる', async () => {
+    open()
+    expect(await screen.findByRole('link', { name: 'プロフィールを編集' })).toHaveAttribute('href', '/coach/profile')
+  })
+
+  it('チャット履歴は確認してから消す', async () => {
+    await addChatMessage({ role: 'user', text: 'こんにちは' })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: 'チャット履歴を消す' }))
+    expect(confirm).toHaveBeenCalled()
+    expect(await listChatMessages()).toHaveLength(1)
+    confirm.mockReturnValue(true)
+    await userEvent.click(screen.getByRole('button', { name: 'チャット履歴を消す' }))
+    await waitFor(async () => expect(await listChatMessages()).toHaveLength(0))
+    confirm.mockRestore()
   })
 })

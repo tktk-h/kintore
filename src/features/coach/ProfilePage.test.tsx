@@ -9,32 +9,44 @@ import { ProfilePage } from './ProfilePage'
 beforeEach(resetDb)
 
 const open = () => renderPage('/coach/profile', '/coach/profile', <ProfilePage />)
-const group = (name: string) => screen.getByRole('group', { name })
+// 役割での検索は重いので、グループの中を文字で探す
+const group = (name: string) => screen.getByLabelText(name)
+const chip = (g: string, name: string) => within(group(g)).getByText(name)
 
 describe('ProfilePage', () => {
   it('聞き取りの内容を保存してAIコーチへ戻る', async () => {
     open()
-    await userEvent.click(within(await screen.findByRole('group', { name: '目標' })).getByRole('button', { name: '筋力アップ' }))
-    await userEvent.click(within(group('経験')).getByRole('button', { name: '1〜3年' }))
-    await userEvent.click(screen.getByRole('button', { name: '週の回数を増やす' }))
-    await userEvent.click(within(group('行ける曜日')).getByRole('button', { name: '月' }))
-    await userEvent.click(within(group('行ける曜日')).getByRole('button', { name: '木' }))
-    await userEvent.click(within(group('行ける曜日')).getByRole('button', { name: '日' }))
-    await userEvent.click(within(group('使える器具')).getByRole('button', { name: 'ジムのフリーウェイト' }))
-    await userEvent.click(within(group('使える器具')).getByRole('button', { name: 'ジムのマシン' }))
-    await userEvent.type(screen.getByRole('textbox', { name: 'ケガや痛む所' }), '右肩')
-    await userEvent.type(screen.getByRole('spinbutton', { name: 'ベンチプレスの重量' }), '80')
+    await userEvent.click(await screen.findByText('筋力アップ'))
+    await userEvent.click(chip('経験', '1〜3年'))
+    await userEvent.click(screen.getByLabelText('週の回数を増やす'))
+    await userEvent.click(chip('行ける曜日', '月'))
+    await userEvent.click(chip('行ける曜日', '木'))
+    await userEvent.click(chip('行ける曜日', '日'))
+    await userEvent.click(chip('使える器具', 'ジムのフリーウェイト'))
+    await userEvent.click(chip('使える器具', 'ジムのマシン'))
+    await userEvent.type(screen.getByLabelText('ケガや痛む所'), '右肩')
+    await userEvent.click(screen.getByText('保存'))
+
+    expect(await screen.findByTestId('current-path')).toHaveTextContent('/coach')
+    expect(await getProfile()).toMatchObject({
+      goal: 'strength', experience: 'y1_3', daysPerWeek: 4, minutesPerSession: 60, weekdays: [0, 1, 4],
+      equipment: ['gym_free', 'gym_machine'], injuries: '右肩', baselines: [],
+    })
+  })
+
+  it('今の重量は「重量×回数」の両方を入れた種目だけ保存する', async () => {
+    await saveProfile({
+      goal: 'hypertrophy', experience: 'under_1y', daysPerWeek: 3, minutesPerSession: 45, weekdays: [1, 3, 5],
+      equipment: ['gym_free'], injuries: '', baselines: [],
+    })
+    open()
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'ベンチプレスの重量' }), '80')
     await userEvent.type(screen.getByRole('spinbutton', { name: 'ベンチプレスの回数' }), '5')
     // 重量だけの種目は保存しない
     await userEvent.type(screen.getByRole('spinbutton', { name: 'スクワットの重量' }), '100')
-    await userEvent.click(screen.getByRole('button', { name: '保存' }))
-
+    await userEvent.click(screen.getByText('保存'))
     expect(await screen.findByTestId('current-path')).toHaveTextContent('/coach')
-    const p = await getProfile()
-    expect(p).toMatchObject({
-      goal: 'strength', experience: 'y1_3', daysPerWeek: 4, minutesPerSession: 60, weekdays: [0, 1, 4],
-      equipment: ['gym_free', 'gym_machine'], injuries: '右肩', baselines: [{ exerciseId: 'ex-bench-press', weight: 80, reps: 5 }],
-    })
+    expect((await getProfile())?.baselines).toEqual([{ exerciseId: 'ex-bench-press', weight: 80, reps: 5 }])
   })
 
   it('目標・経験・曜日・器具が足りなければ保存せずに知らせる', async () => {
@@ -55,8 +67,8 @@ describe('ProfilePage', () => {
     expect(within(group('行ける曜日')).getByRole('button', { name: '水' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '1回の時間 45分' })).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: 'デッドリフトの重量' })).toHaveValue(100)
-    await userEvent.click(within(group('行ける曜日')).getByRole('button', { name: '水' }))
-    await userEvent.click(screen.getByRole('button', { name: '保存' }))
+    await userEvent.click(chip('行ける曜日', '水'))
+    await userEvent.click(screen.getByText('保存'))
     await waitFor(async () => expect((await getProfile())?.weekdays).toEqual([1, 5]))
     expect((await getProfile())?.preferredSplit).toBe('full_body')
   })

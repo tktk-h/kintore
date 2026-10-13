@@ -213,3 +213,13 @@
 /* ===== トレーニング中／一時停止中 ===== */
 .workout-status { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
 .workout-status .btn-sm { min-height: 44px; }
+
+/* きつさは？（最後のセットのあと） */
+.effort-prompt { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-2) 0; padding: var(--s-3); border-radius: var(--r-md); border: 1px solid var(--accent-line); background: var(--accent-soft); animation: fade-in 0.2s var(--ease); }
+.effort-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); font-weight: 800; }
+.effort-head .icon-btn { width: 36px; height: 36px; }
+.effort-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.effort-options button { appearance: none; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-2); color: var(--text); transition: transform 0.12s var(--ease), background-color 0.15s; }
+.effort-options button:active { transform: scale(0.94); background: var(--surface-press); }
+.effort-options strong { font-size: 20px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.effort-options small { font-size: var(--fs-micro); font-weight: 700; color: var(--muted); line-height: 1.2; text-align: center; word-break: keep-all; overflow-wrap: anywhere; }

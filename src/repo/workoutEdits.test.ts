@@ -33,6 +33,15 @@ describe('workoutEdits', () => {
     expect((await getWorkoutDetail(id))!.exercises[0].sets[0].doneAt).toBeUndefined()
   })
 
+  it('その種目の全セットが完了したときだけ true を返す', async () => {
+    const { id, detail } = await setup()
+    await addSet(detail.exercises[0].workoutExercise.id)
+    const [first, second] = (await getWorkoutDetail(id))!.exercises[0].sets
+    expect(await setDone(first.id, true)).toBe(false)
+    expect(await setDone(second.id, true)).toBe(true)
+    expect(await setDone(second.id, false)).toBe(false)
+  })
+
   it('セット追加は最後のセットの値をコピーする', async () => {
     const { id, detail } = await setup()
     await addSet(detail.exercises[0].workoutExercise.id)

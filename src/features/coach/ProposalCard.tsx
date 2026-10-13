@@ -88,7 +88,7 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
               const ex = byId.get(x.exerciseId)
               return (
                 <li key={`${x.slot}-${x.exerciseId}`}>
-                  <span className="proposal-ex-name">{ex?.name ?? '（見つからない種目）'}</span>
+                  <span className="proposal-ex-name">{exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')}</span>
                   <span className="proposal-ex-meta num">{exerciseLine(x, ex)}</span>
                 </li>
               )

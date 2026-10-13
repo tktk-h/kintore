@@ -65,6 +65,7 @@
 
 /* ===== 入力欄 ===== */
 input[type='text'],
+input[type='password'],
 input[type='search'],
 input[type='date'],
 select,
@@ -83,6 +84,7 @@ textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 input[type='text']:focus,
+input[type='password']:focus,
 input[type='search']:focus,
 input[type='date']:focus,
 select:focus,
@@ -478,3 +480,9 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .tabs button { appearance: none; min-height: 40px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--muted); font-size: var(--fs-sub); font-weight: 700; transition: background-color 0.15s, color 0.15s; }
 .tabs button.selected { background: var(--surface-3); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .tabs button:active { transform: scale(0.97); }
+
+/* 設定：合言葉 */
+.passcode-row { display: flex; align-items: center; gap: var(--s-2); }
+.passcode-row input { flex: 1; min-width: 0; }
+.passcode-row .btn { flex: none; }
+.passcode-set { font-size: var(--fs-sub); }

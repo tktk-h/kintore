@@ -22,19 +22,24 @@ const openApp = (url: string) =>
   )
 
 describe('MenuPage', () => {
-  it('マイメニューと種目をタブで切り替える', async () => {
+  it('最初はマイメニューのタブを出す（タブのルートなので戻るボタンはない）', async () => {
     await createRoutine({ name: '胸の日', exercises: [] })
     openApp('/routines')
     expect(await screen.findByRole('tab', { name: 'マイメニュー' })).toHaveAttribute('aria-selected', 'true')
     expect(await screen.findByRole('link', { name: /胸の日/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '新規' })).toHaveAttribute('href', '/routines/new')
     expect(screen.queryByRole('button', { name: '戻る' })).toBeNull()
+  })
 
-    await userEvent.click(screen.getByRole('tab', { name: '種目' }))
+  it('「種目」タブに切り替えると種目の一覧と追加ボタンを出す', async () => {
+    await createRoutine({ name: '胸の日', exercises: [] })
+    openApp('/routines')
+    await userEvent.click(await screen.findByRole('tab', { name: '種目' }))
     expect(screen.getByRole('tab', { name: '種目' })).toHaveAttribute('aria-selected', 'true')
-    expect(await screen.findByRole('link', { name: /^ベンチプレス/ })).toHaveAttribute('href', '/exercises/ex-bench-press')
+    // 種目が多いので、役割での検索（重い）ではなく文字で探す
+    expect((await screen.findByText('ベンチプレス')).closest('a')).toHaveAttribute('href', '/exercises/ex-bench-press')
     expect(screen.getByRole('link', { name: '追加' })).toHaveAttribute('href', '/exercises/new')
-    expect(screen.queryByRole('link', { name: /胸の日/ })).toBeNull()
+    expect(screen.queryByText('胸の日')).toBeNull()
   })
 
   it('/routines?tab=exercises で種目のタブを開く', async () => {
