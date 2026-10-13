@@ -91,6 +91,24 @@ describe('backup', () => {
     expect((await db.exercises.get('my-ex'))?.pattern).toBeUndefined()
   })
 
+  it.each([
+    ['injuries が文字でない', { injuries: 3 }],
+    ['baselines が配列でない', { baselines: 'x' }],
+    ['baselines の中身の形が違う', { baselines: [{ exerciseId: 'ex-squat', weight: '60', reps: 5 }] }],
+    ['weekdays に数字以外', { weekdays: ['月'] }],
+    ['equipment に文字以外', { equipment: [1] }],
+  ])('プロフィールの形がおかしければエラー（%s）', async (_label, patch) => {
+    const profile = {
+      id: 'me', goal: 'strength', experience: 'over_3y', daysPerWeek: 3, minutesPerSession: 60, weekdays: [1],
+      equipment: ['gym_free'], injuries: '', baselines: [{ exerciseId: 'ex-squat', weight: 60, reps: 5 }], updatedAt: 0,
+    }
+    const backup = await exportBackup()
+    const ok = { ...backup, data: { ...backup.data, profile: [profile] } }
+    expect(() => parseBackup(JSON.stringify(ok))).not.toThrow()
+    const broken = { ...backup, data: { ...backup.data, profile: [{ ...profile, ...patch }] } }
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('バックアップファイルが壊れています（profile）')
+  })
+
   it('チャットの形がおかしければエラー', async () => {
     const backup = await exportBackup()
     const broken = { ...backup, data: { ...backup.data, chatMessages: [{ id: 'c', deleted: false, role: 'robot', text: 'x', createdAt: 0, updatedAt: 0 }] } }

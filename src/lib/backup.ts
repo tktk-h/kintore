@@ -42,7 +42,11 @@ const CHECKS: Record<TableName, (r: Row) => boolean> = {
   settings: (r) => r.id === 'app' && num(r.weightStep) && num(r.repStep),
   profile: (r) =>
     r.id === 'me' && str(r.goal) && str(r.experience) && num(r.daysPerWeek) && num(r.minutesPerSession) &&
-    Array.isArray(r.weekdays) && Array.isArray(r.equipment),
+    Array.isArray(r.weekdays) && r.weekdays.every(num) &&
+    Array.isArray(r.equipment) && r.equipment.every(str) &&
+    str(r.injuries) &&
+    Array.isArray(r.baselines) &&
+    r.baselines.every((b) => isObject(b) && str(b.exerciseId) && num(b.weight) && num(b.reps)),
   chatMessages: (r) =>
     bool(r.deleted) && (r.role === 'user' || r.role === 'coach') && str(r.text) && num(r.createdAt),
 }
