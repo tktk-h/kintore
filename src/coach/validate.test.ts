@@ -13,7 +13,7 @@ const profile = (p: Partial<Profile> = {}): Profile => ({
 
 const PICK: Partial<Record<MovementPattern, string>> = {
   horizontal_push: 'ex-bench-press', horizontal_pull: 'ex-seated-cable-row', vertical_push: 'ex-dumbbell-shoulder-press',
-  vertical_pull: 'ex-lat-pulldown', side_delt: 'ex-side-raise', biceps: 'ex-dumbbell-curl', triceps: 'ex-triceps-pushdown',
+  vertical_pull: 'ex-lat-pulldown', chest_isolation: 'ex-pec-deck', side_delt: 'ex-side-raise', biceps: 'ex-dumbbell-curl', triceps: 'ex-triceps-pushdown',
   squat: 'ex-squat', hinge: 'ex-romanian-deadlift', single_leg: 'ex-bulgarian-split-squat', hamstring: 'ex-leg-curl',
   calf: 'ex-calf-raise', core: 'ex-crunch',
 }
@@ -47,7 +47,7 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
 
   it('候補にない種目ID', () => {
     const p = valid()
-    p.days[0].exercises[5].exerciseId = 'ex-nope' // 二頭の枠（抜けても週のセット数は足りる）
+    p.days[0].exercises[6].exerciseId = 'ex-nope' // 二頭の枠（抜けても週のセット数は足りる）
     const issues = check(p)
     expect(issues).toHaveLength(1)
     expect(issues[0]).toContain('候補にない')
@@ -64,7 +64,7 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
   it('枠の動きに合わない種目', () => {
     const p = valid()
     p.days[0].exercises[0].exerciseId = 'ex-chest-press' // 水平に押す（合う）
-    p.days[0].exercises[4].exerciseId = 'ex-rear-raise' // 横肩の枠に後ろ肩
+    p.days[0].exercises[5].exerciseId = 'ex-rear-raise' // 横肩の枠に後ろ肩
     const issues = check(p)
     expect(issues).toHaveLength(1)
     expect(issues[0]).toContain('合いません')
@@ -82,7 +82,7 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
   it('セット数は1〜10', () => {
     for (const sets of [0, 11]) {
       const p = valid()
-      p.days[0].exercises[5].sets = sets
+      p.days[0].exercises[6].sets = sets
       const issues = check(p, skeleton, profile({ minutesPerSession: 300 }))
       expect(issues, String(sets)).toHaveLength(1)
       expect(issues[0]).toContain('セット')
@@ -133,8 +133,8 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
 
   it('1日の合計時間が1回の時間を超える', () => {
     const p = valid()
-    p.days[0].exercises.push({ ...p.days[0].exercises[6] }) // 上半身の日に三頭をもう1種目
-    p.days[0].exercises[7].sets = 4
+    p.days[0].exercises.push({ ...p.days[0].exercises[7] }) // 上半身の日に三頭をもう1種目
+    p.days[0].exercises[8].sets = 4
     const total = p.days[0].exercises.reduce((a, x) => a + x.sets, 0)
     expect(total * 3).toBeGreaterThan(60)
     const issues = check(p)
@@ -144,8 +144,8 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
 
   it('部位ごとの週のセット数が上限の1.5倍を超える', () => {
     const p = valid()
-    p.days[0].exercises[4].sets = 10 // 横肩
-    p.days[2].exercises[4].sets = 10
+    p.days[0].exercises[5].sets = 10 // 横肩
+    p.days[2].exercises[5].sets = 10
     // 目標 10〜14 → 21 を超えると多すぎ（横肩 10＋10＋上に押す枠の補助）
     const issues = check(p, { ...skeleton, weeklySetTarget: [10, 14] }, profile({ minutesPerSession: 300 }))
     expect(issues).toHaveLength(1)

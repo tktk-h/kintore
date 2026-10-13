@@ -18,7 +18,7 @@ describe('daySlots（設計書「2. 日ごとの枠」）', () => {
 
   it('上半身', () => {
     expect(patterns('upper')).toEqual([
-      ['horizontal_push'], ['horizontal_pull'], ['vertical_push'], ['vertical_pull'], ['side_delt'], ['biceps'], ['triceps'],
+      ['horizontal_push'], ['horizontal_pull'], ['vertical_push'], ['vertical_pull'], ['chest_isolation'], ['side_delt'], ['biceps'], ['triceps'],
     ])
   })
 
@@ -35,8 +35,8 @@ describe('daySlots（設計書「2. 日ごとの枠」）', () => {
 
   it('枠のIDは「日の種類.番号」で、複数関節の枠が先に来る', () => {
     const slots = daySlots('upper', 0)
-    expect(slots.map((s) => s.slot)).toEqual(['upper.1', 'upper.2', 'upper.3', 'upper.4', 'upper.5', 'upper.6', 'upper.7'])
-    expect(slots.map((s) => s.compound)).toEqual([true, true, true, true, false, false, false])
+    expect(slots.map((s) => s.slot)).toEqual(['upper.1', 'upper.2', 'upper.3', 'upper.4', 'upper.5', 'upper.6', 'upper.7', 'upper.8'])
+    expect(slots.map((s) => s.compound)).toEqual([true, true, true, true, false, false, false, false])
     expect(daySlots('legs', 0)[0].slot).toBe('legs.1')
   })
 

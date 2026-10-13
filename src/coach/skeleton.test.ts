@@ -52,6 +52,13 @@ describe('buildSkeleton', () => {
     for (const [m, v] of Object.entries(sets)) expect(v, m).toBeLessThanOrEqual(max * 1.25)
   })
 
+  it('上半身の日に胸の単関節の枠があり、週4日60分で胸が週10セット以上になる', () => {
+    const s = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1 })
+    expect(s.days[0].slots.map((x) => x.patterns[0])).toContain('chest_isolation')
+    const sets = estimateMuscleSets(allSlots(s))
+    expect(sets.chest ?? 0).toBeGreaterThanOrEqual(10)
+  })
+
   it('初心者・全身×3でも目標内', () => {
     const s = buildSkeleton({
       profile: profile({ experience: 'none', daysPerWeek: 3, weekdays: [1, 3, 5] }), weekStart: MON, weeksSinceDeload: 0,

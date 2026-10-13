@@ -35,7 +35,7 @@ function rows(dayType: DayType, variant: number): Row[] {
     case 'upper':
       return [
         [['horizontal_push'], true], [['horizontal_pull'], true], [['vertical_push'], true], [['vertical_pull'], true],
-        [['side_delt'], false], [['biceps'], false], [['triceps'], false],
+        [['chest_isolation'], false], [['side_delt'], false], [['biceps'], false], [['triceps'], false],
       ]
     case 'lower':
     case 'legs':
