@@ -17,6 +17,8 @@ export interface Skeleton {
   days: DayPlan[]
   weeklySetTarget: [number, number]   // 部位ごとの週のセット数の目標
   deload: boolean
+  /** 軽めの週にした理由（AIとチャットに伝える） */
+  deloadReason?: string
   /** 日数を減らした・分割法を変えたなどの理由（チャットやAIに伝える） */
   notes: string[]
   /** 今週の見直しで、対象週にもう終えた日（48時間ルールで数える） */

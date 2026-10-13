@@ -64,6 +64,16 @@ describe('candidatesFor', () => {
 })
 
 describe('buildCoachRequest', () => {
+  it('軽めの週なら、そのことと理由を伝える', () => {
+    const sk = buildSkeleton({ profile: profile(), weekStart: NEXT, weeksSinceDeload: 2, fatigue: 'condition' })
+    const c = ctx({ skeleton: sk })
+    expect(c.skeleton.deload).toBe(true)
+    expect(c.skeleton.deloadReason).toContain('調子')
+    expect(c.request).toContain('軽めの週')
+    expect(c.request).toContain('調子')
+    expect(buildCoachRequest(args()).system).toContain('deloadReason')
+  })
+
   it('system はルールを日本語で伝える', () => {
     const r = buildCoachRequest(args())
     expect(r.system).toContain('候補')

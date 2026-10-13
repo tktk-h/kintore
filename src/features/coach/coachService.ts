@@ -64,7 +64,7 @@ function startDate(done: DoneDay[], today: string, skipToday: boolean): string {
 function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, thisWeek?: { from: string; done: DoneDay[] }): Skeleton {
   return buildSkeleton({
     profile, weekStart, weeksSinceDeload: inputs.weeksSinceDeload,
-    slotSetDelta: inputs.slotSetDelta, slotBaseSets: inputs.slotBaseSets,
+    slotSetDelta: inputs.slotSetDelta, slotBaseSets: inputs.slotBaseSets, fatigue: inputs.fatigue,
     ...(thisWeek ? { from: thisWeek.from, done: thisWeek.done } : {}),
   })
 }

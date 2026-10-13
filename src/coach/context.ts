@@ -110,6 +110,7 @@ export const COACH_SYSTEM_PROMPT = [
   '- 骨組みの日付・枠・セット数・回数・休憩を守る。セット数は1種目2〜4（軽めの週は半分）、1日の合計は「1セット約3分」で1回の時間に収める。',
   '- 部位ごとの週のセット数は目標（主に使う部位1、補助0.5で数える）に収める。同じ部位の日の間は48時間以上あける。',
   '- 重さはアプリが計算するので、決めなくてよい。',
+  '- skeleton.deload が true のときは軽めの週（セット数は約半分、重さは据え置き）。message で軽めの週であることと理由（skeleton.deloadReason）を短く伝える。',
   '- 分割法の変更を頼まれたら、message で受け付けたことを伝える（アプリが組み直す）。',
   '- proposal の date は YYYY-MM-DD、slot は骨組みの枠のID、exerciseId は候補のID をそのまま使う。',
   '- reasons には、この構成にした理由を短く書く。message にはチャットに出す返事を書く。',
@@ -125,6 +126,12 @@ function intentText(intent: CoachIntent, earliestDate: string | undefined): stri
     case 'chat':
       return `メニューを作る・直す必要があるときだけ proposal を返してください（日付は${from || '対象週の中で'}）。質問や相談だけなら message だけで答えてください。`
   }
+}
+
+function deloadText(skeleton: Skeleton): string {
+  if (!skeleton.deload) return ''
+  return `
+対象週は軽めの週（デロード）です。理由：${skeleton.deloadReason ?? '疲れを抜くため'}。セット数は骨組みのとおり約半分で、重さは据え置きです。message でこのことを伝えてください。`
 }
 
 function formatSet(s: SetValues): string {
@@ -195,7 +202,7 @@ export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
 
   const makeContext = () => JSON.stringify({
     today,
-    request: intentText(intent, earliestDate),
+    request: intentText(intent, earliestDate) + deloadText(skeleton),
     profile: {
       goal: GOAL_LABELS[profile.goal],
       experience: EXPERIENCE_LABELS[profile.experience],
@@ -211,6 +218,7 @@ export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
       weekStart: skeleton.weekStart,
       weeklySetTarget: skeleton.weeklySetTarget,
       deload: skeleton.deload,
+      ...(skeleton.deloadReason ? { deloadReason: skeleton.deloadReason } : {}),
       notes: skeleton.notes,
       ...(skeleton.done ? { done: skeleton.done } : {}),
       days: skeleton.days.map((d) => ({

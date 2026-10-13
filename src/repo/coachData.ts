@@ -1,8 +1,9 @@
 import type { CoachHistory, HistoryWorkout } from '../coach/context'
 import { HISTORY_DAYS } from '../coach/context'
 import { decideLoad, type PastSession } from '../coach/load'
+import type { Fatigue } from '../coach/skeleton'
 import { db } from '../db/db'
-import type { ChatMessage, Exercise, LogType, PlannedWorkout, Profile, SetRecord, Settings, Workout } from '../db/types'
+import type { ChatMessage, Exercise, LogType, PlannedWorkout, Rating, Profile, SetRecord, Settings, Workout } from '../db/types'
 import { addDays, daysBetween, mondayOf, todayKey } from '../lib/dates'
 import { valuesOf } from '../lib/setValues'
 import { listChatMessages } from './chat'
@@ -27,10 +28,18 @@ export interface CoachInputs {
   slotSetDelta: Partial<Record<string, -1 | 0 | 1>>
   /** 前のAIの週の枠ごとの実際のセット数（軽めの週だったときは空。来週のセット数はここから増減する） */
   slotBaseSets: Partial<Record<string, number>>
+  /**
+   * 疲れのサイン（設計書「7. デロード」）。直近2週間で、きつさを記録した種目の半分以上がきつさ5なら effort、
+   * 調子2以下の日が2回以上なら condition。前の週がもう軽めの週なら付けない
+   */
+  fatigue?: Fatigue
   /** 前回の軽めの週から何週たったか */
   weeksSinceDeload: number
   chat: ChatMessage[]
 }
+
+/** 「きつさ5が多い」と判断するのに要るきつさの記録の数（1つだけで決めない） */
+const MIN_EFFORTS_FOR_FATIGUE = 2
 
 const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order
 const weeksBetween = (from: string, to: string) => Math.max(0, Math.floor(daysBetween(mondayOf(from), mondayOf(to)) / 7))
@@ -143,8 +152,21 @@ export async function loadCoachInputs(weekStart: string, today = todayKey()): Pr
   const firstAi = aiBefore.map((p) => p.date).sort()[0]
   const weeksSinceDeload = deloads.length ? weeksBetween(deloads[deloads.length - 1], monday) : firstAi ? weeksBetween(firstAi, monday) : 0
 
+  // 疲れのサイン：直近2週間（今日を含む14日）の記録から
+  const recentFrom = addDays(today, -13)
+  const recent = historyWorkouts.filter((w) => w.date >= recentFrom && w.date <= today)
+  const efforts = recent.flatMap((w) => w.exercises.map((x) => x.effort).filter((e): e is Rating => e !== undefined))
+  const lowDays = recent.filter((w) => w.condition !== undefined && w.condition <= 2).length
+  const lastDeloadWeek = deloads.length ? weeksBetween(deloads[deloads.length - 1], monday) : undefined
+  const justDeloaded = lastDeloadWeek !== undefined && lastDeloadWeek <= 1
+  let fatigue: Fatigue | undefined
+  if (!justDeloaded) {
+    if (efforts.length >= MIN_EFFORTS_FOR_FATIGUE && efforts.filter((e) => e === 5).length * 2 >= efforts.length) fatigue = 'effort'
+    else if (lowDays >= 2) fatigue = 'condition'
+  }
+
   return {
-    profile, catalog, settings, sessions,
+    profile, catalog, settings, sessions, ...(fatigue ? { fatigue } : {}),
     history: { workouts: historyWorkouts, missed },
     existingPlans, previousSlots, slotSetDelta, slotBaseSets, weeksSinceDeload, chat,
   }

@@ -172,6 +172,21 @@ describe('buildSkeleton', () => {
     expect(get(week(2, -1), 'lower.4').every((x) => x.sets === 2)).toBe(true)
   })
 
+  it('疲れのサイン（きつさ5が多い・調子が低い日が続く）があれば、6週たっていなくても軽めの週にして理由を残す', () => {
+    const effort = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 2, fatigue: 'effort' })
+    expect(effort.deload).toBe(true)
+    expect(effort.deloadReason).toContain('きつさ5')
+    expect(effort.notes.join()).toContain('きつさ5')
+    const condition = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 2, fatigue: 'condition' })
+    expect(condition.deload).toBe(true)
+    expect(condition.deloadReason).toContain('調子')
+    const six = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 6 })
+    expect(six.deloadReason).toContain('6週')
+    const none = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 2 })
+    expect(none.deload).toBe(false)
+    expect(none.deloadReason).toBeUndefined()
+  })
+
   it('週の途中の日付を渡しても月曜から始める', () => {
     const s = buildSkeleton({ profile: profile(), weekStart: '2026-10-14', weeksSinceDeload: 1 })
     expect(s.weekStart).toBe(MON)

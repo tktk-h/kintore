@@ -13,6 +13,8 @@ export const DELOAD_EVERY_WEEKS = 6
 /** 他の部位を目標に届かせるとき、上限をどこまで超えてよいか */
 const OVERSHOOT = 1.25
 
+export type Fatigue = 'effort' | 'condition'
+
 export interface BuildSkeletonArgs {
   profile: Profile
   /** 対象週の日付（月曜でなければその週の月曜にそろえる） */
@@ -29,6 +31,11 @@ export interface BuildSkeletonArgs {
    * （設計書「6. きつさによる調整」：楽が続けば週ごとに1セットずつ積み上がる）
    */
   slotBaseSets?: Partial<Record<string, number>>
+  /**
+   * 疲れのサイン（設計書「7. デロード」）。あれば6週たっていなくても軽めの週にする。
+   * effort：直近2週間できつさ5の種目が多い／condition：直近2週間で調子の低い日が続く
+   */
+  fatigue?: Fatigue
   /** 今週の見直し：この日付より前の日は組まない */
   from?: string
   /** 今週の見直し：対象週にもう終えた日。その日数分の日の種類を除き、48時間ルールと週のセット数に数える */
@@ -134,10 +141,10 @@ function applySetDelta(
  * 1週間分の骨組み（分割法・日付ごとの日の種類・枠・セット数・回数・休憩）を作る。
  * 設計書「メニューの決め方 1〜3・7」。
  * 順番：分割法 → 日の並び（48時間ルール） → 枠（2セットずつ） → 時間に収める → セット数を配る
- * → きつさによる増減 → デロードなら半分。
+ * → きつさによる増減 → デロード（6週ごと、または疲れのサインがあるとき）なら半分。
  */
 export function buildSkeleton({
-  profile, weekStart: anyDay, weeksSinceDeload, slotSetDelta, slotBaseSets, from, done: doneArg,
+  profile, weekStart: anyDay, weeksSinceDeload, slotSetDelta, slotBaseSets, from, done: doneArg, fatigue,
 }: BuildSkeletonArgs): Skeleton {
   const weekStart = mondayOf(anyDay)
   const { experience, goal } = profile
@@ -198,14 +205,22 @@ export function buildSkeleton({
   distributeSets(days, target, dayMax, doneSets)
   applySetDelta(days, slotSetDelta, slotBaseSets, target, dayMax, doneSets)
 
-  const deload = weeksSinceDeload >= DELOAD_EVERY_WEEKS
+  const deloadReason = weeksSinceDeload >= DELOAD_EVERY_WEEKS
+    ? `前回の軽めの週から${weeksSinceDeload}週たった`
+    : fatigue === 'effort'
+      ? '直近2週間で、きつさ5（限界）の種目が半分以上あった'
+      : fatigue === 'condition'
+        ? '直近2週間で、調子の低い日（2以下）が2回以上あった'
+        : undefined
+  const deload = deloadReason !== undefined
   if (deload) {
     for (const d of days) for (const s of d.slots) s.sets = Math.max(1, Math.ceil(s.sets / 2))
-    notes.push(`前回の軽めの週から${weeksSinceDeload}週たったので、今週は軽めの週（セット数を約半分、重さは据え置き）にしました。`)
+    notes.push(`${deloadReason}ので、今週は軽めの週（セット数を約半分、重さは据え置き）にしました。`)
   }
 
   return {
     split, weekStart, days, weeklySetTarget: target, deload, notes,
+    ...(deloadReason ? { deloadReason } : {}),
     ...(done.length > 0 ? { done: done.map((d) => ({ date: d.date, muscles: [...d.muscles] })), doneMuscleSets: doneSets } : {}),
   }
 }

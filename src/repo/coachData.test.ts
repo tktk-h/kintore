@@ -119,6 +119,41 @@ describe('loadCoachInputs', () => {
     expect(r.slotSetDelta).toEqual({ 'lower.6': 0 })
   })
 
+  describe('疲れのサイン（設計書「7. デロード」）', () => {
+    it('直近2週間で、きつさを記録した種目の半分以上がきつさ5なら effort', async () => {
+      await addWorkout('2026-10-13', [
+        { exerciseId: 'ex-bench-press', effort: 5, sets: [{ weight: 60, reps: 6 }] },
+        { exerciseId: 'ex-squat', effort: 3, sets: [{ weight: 80, reps: 6 }] },
+      ])
+      await addWorkout('2026-10-08', [{ exerciseId: 'ex-bench-press', effort: 5, sets: [{ weight: 60, reps: 6 }] }])
+      // 2週間より前は数えない
+      await addWorkout('2026-09-28', [{ exerciseId: 'ex-squat', effort: 2, sets: [{ weight: 80, reps: 6 }] }, { exerciseId: 'ex-deadlift', effort: 2, sets: [{ weight: 80, reps: 6 }] }])
+      expect((await loadCoachInputs(NEXT, TODAY)).fatigue).toBe('effort')
+    })
+
+    it('半分未満なら何もない', async () => {
+      await addWorkout('2026-10-13', [
+        { exerciseId: 'ex-bench-press', effort: 5, sets: [{ weight: 60, reps: 6 }] },
+        { exerciseId: 'ex-squat', effort: 3, sets: [{ weight: 80, reps: 6 }] },
+        { exerciseId: 'ex-deadlift', effort: 4, sets: [{ weight: 80, reps: 6 }] },
+      ])
+      expect((await loadCoachInputs(NEXT, TODAY)).fatigue).toBeUndefined()
+    })
+
+    it('直近2週間で調子2以下の日が2回以上なら condition', async () => {
+      await addWorkout('2026-10-13', [{ exerciseId: 'ex-squat', sets: [{ weight: 80, reps: 6 }] }], { condition: 2 })
+      await addWorkout('2026-10-06', [{ exerciseId: 'ex-squat', sets: [{ weight: 80, reps: 6 }] }], { condition: 1 })
+      expect((await loadCoachInputs(NEXT, TODAY)).fatigue).toBe('condition')
+    })
+
+    it('前の週がもう軽めの週なら続けて軽めにはしない', async () => {
+      await addPlan({ date: '2026-10-13', source: 'ai', deload: true })
+      await addWorkout('2026-10-13', [{ exerciseId: 'ex-squat', sets: [{ weight: 80, reps: 6 }] }], { condition: 2 })
+      await addWorkout('2026-10-06', [{ exerciseId: 'ex-squat', sets: [{ weight: 80, reps: 6 }] }], { condition: 1 })
+      expect((await loadCoachInputs(NEXT, TODAY)).fatigue).toBeUndefined()
+    })
+  })
+
   it('最後の軽めの週からの週数（なければ最初のAIの週から、AIの予定がなければ0）', async () => {
     expect((await loadCoachInputs(NEXT, TODAY)).weeksSinceDeload).toBe(0)
 
