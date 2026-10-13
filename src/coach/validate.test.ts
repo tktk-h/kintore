@@ -195,6 +195,15 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     expect(issues.filter((i) => i.includes('10月16日(金)') && i.includes('抜けて'))).toHaveLength(1)
   })
 
+  it('今週もう終えた日も、48時間と週のセット数に数える', () => {
+    const p = valid()
+    // 日曜(10/11)ではなく、同じ週の木曜の上半身の前日(水)に胸を終えたことにする
+    const s = { ...skeleton, done: [{ date: '2026-10-14', muscles: ['chest' as const] }], doneMuscleSets: { chest: 30 } }
+    const issues = check(p, s)
+    expect(issues.some((i) => i.includes('10月14日(水)') && i.includes('48時間'))).toBe(true)
+    expect(issues.some((i) => i.includes('胸') && i.includes('多すぎ'))).toBe(true)
+  })
+
   it('軽めの週は下限のチェックをしない', () => {
     const deload = buildSkeleton({ profile: profile(), weekStart: '2026-10-12', weeksSinceDeload: 6 })
     expect(deload.deload).toBe(true)

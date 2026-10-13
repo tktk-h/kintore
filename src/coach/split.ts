@@ -1,5 +1,6 @@
 import type { Experience } from '../db/types'
-import { addDays } from '../lib/dates'
+import type { Muscle } from '../db/types'
+import { addDays, daysBetween } from '../lib/dates'
 import { dayTypeMuscles } from './templates'
 import type { DayType, SplitType } from './types'
 import { isBeginner } from './volume'
@@ -61,6 +62,15 @@ export function sharesMuscles(a: DayType, b: DayType): boolean {
 
 export interface ScheduledDay { date: string; dayType: DayType }
 
+export interface ScheduleOptions {
+  /** この日付より前は選ばない（今週の見直し） */
+  from?: string
+  /** 並べる日の種類（既定は分割法の並びの count 日分） */
+  types?: DayType[]
+  /** もう終えた日。同じ部位の日はこの日からも48時間あける */
+  fixed?: { date: string; muscles: Muscle[] }[]
+}
+
 function combinations<T>(items: T[], k: number): T[][] {
   if (k === 0) return [[]]
   const out: T[][] = []
@@ -77,24 +87,35 @@ function combinations<T>(items: T[], k: number): T[][] {
  * 48時間ルールを満たすものの中から、次の週への折り返しを含めた最小の間隔が最も大きいもの、
  * 同じなら連続する日（間隔1日、折り返しを含む）の組が少ないもの、それも同じなら早い日付を選ぶ。
  * 1つもなければ日数を1日ずつ減らし、減らした理由を notes に入れる。
+ * 今週の見直しでは、from より前の日を選ばず、もう終えた日（fixed）と同じ部位の日も48時間あける。
  */
 export function scheduleDays(
-  split: SplitType, weekdays: number[], weekStart: string, count: number,
+  split: SplitType, weekdays: number[], weekStart: string, count: number, opts: ScheduleOptions = {},
 ): { days: ScheduledDay[]; notes: string[] } {
-  const available = [...new Set(weekdays)]
+  const fromOffset = opts.from ? Math.max(0, daysBetween(weekStart, opts.from)) : 0
+  const allAvailable = [...new Set(weekdays)]
     .filter((w) => w >= 0 && w <= 6)
     .map((w) => (w + 6) % 7) // 月曜からの日数
     .sort((a, b) => a - b)
-  if (available.length === 0) return { days: [], notes: ['行ける曜日が選ばれていないため、メニューを組めません。'] }
+  if (allAvailable.length === 0) return { days: [], notes: ['行ける曜日が選ばれていないため、メニューを組めません。'] }
+  if (count <= 0) return { days: [], notes: ['今週の予定の日数はもう終えています。'] }
+  const available = allAvailable.filter((o) => o >= fromOffset)
+  if (available.length === 0) return { days: [], notes: ['今週はもう行ける曜日が残っていません。'] }
 
-  const types = dayTypeSequence(split, count)
+  const types = opts.types ?? dayTypeSequence(split, count)
+  const fixed = (opts.fixed ?? []).map((f) => ({ offset: daysBetween(weekStart, f.date), muscles: f.muscles }))
+  const clashesWithFixed = (offset: number, type: DayType) => {
+    const muscles = dayTypeMuscles(type)
+    return fixed.some((f) => Math.abs(offset - f.offset) < MIN_GAP_DAYS && f.muscles.some((m) => muscles.includes(m)))
+  }
   for (let n = Math.min(count, available.length); n >= 1; n--) {
     let best: number[] | undefined
     let bestScore = -1
     let bestAdjacent = Infinity
     for (const combo of combinations(available, n)) {
       const ok = combo.every((a, i) =>
-        combo.slice(i + 1).every((b, j) => b - a >= MIN_GAP_DAYS || !sharesMuscles(types[i], types[i + 1 + j])))
+        !clashesWithFixed(a, types[i])
+        && combo.slice(i + 1).every((b, j) => b - a >= MIN_GAP_DAYS || !sharesMuscles(types[i], types[i + 1 + j])))
       if (!ok) continue
       const gaps = combo.map((a, i) => (i + 1 < n ? combo[i + 1] : combo[0] + 7) - a)
       const score = Math.min(...gaps)
@@ -109,12 +130,14 @@ export function scheduleDays(
     const days = best.map((offset, i) => ({ date: addDays(weekStart, offset), dayType: types[i] }))
     const notes: string[] = []
     if (n < count) {
+      const what = opts.from ? '今週の残り' : '週'
       notes.push(available.length < count
-        ? `行ける曜日が${available.length}日しかないため、週${count}日ではなく週${n}日で組みました。`
-        : `行ける曜日の間隔が詰まっていて、同じ部位の日の間を48時間あけられないため、週${count}日ではなく週${n}日で組みました。`)
+        ? `${opts.from ? '今週の残りの' : ''}行ける曜日が${available.length}日しかないため、${what}${count}日ではなく${opts.from ? '' : '週'}${n}日で組みました。`
+        : `行ける曜日の間隔が詰まっていて、同じ部位の日の間を48時間あけられないため、${what}${count}日ではなく${opts.from ? '' : '週'}${n}日で組みました。`)
     }
     return { days, notes }
   }
-  return { days: [], notes: [] } // n=1 は必ず組めるのでここには来ない
+  // もう終えた日との48時間ルールで1日も組めないとき（終えた日がなければ n=1 は必ず組める）
+  return { days: [], notes: ['もう終えた日と同じ部位を48時間以内に鍛えることになるため、今週の残りには組めません。'] }
 }
 

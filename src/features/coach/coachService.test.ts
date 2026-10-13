@@ -3,6 +3,9 @@ import type { CoachReply, CoachRequest } from '../../../api/_lib/schema'
 import { buildSkeleton } from '../../coach/skeleton'
 import type { Skeleton } from '../../coach/types'
 import type { MovementPattern, Profile } from '../../db/types'
+import { db } from '../../db/db'
+import type { SetRecord, Workout, WorkoutExercise } from '../../db/types'
+import { newRecord } from '../../lib/records'
 import { listChatMessages } from '../../repo/chat'
 import { saveProfile } from '../../repo/profile'
 import { saveSettings } from '../../repo/settings'
@@ -25,8 +28,8 @@ const PICK: Partial<Record<MovementPattern, string>> = {
   hamstring: 'ex-leg-curl', calf: 'ex-calf-raise', core: 'ex-crunch',
 }
 
-const skeletonFor = (weekStart: string): Skeleton =>
-  buildSkeleton({ profile: { ...profile, id: 'me', updatedAt: 0 }, weekStart, weeksSinceDeload: 0 })
+const skeletonFor = (weekStart: string, from?: string): Skeleton =>
+  buildSkeleton({ profile: { ...profile, id: 'me', updatedAt: 0 }, weekStart, weeksSinceDeload: 0, from })
 
 /** 骨組みどおりの正しい返事 */
 function goodReply(s: Skeleton = skeletonFor(NEXT), from = ''): CoachReply {
@@ -132,7 +135,7 @@ describe('askCoach', () => {
   })
 
   it('今週の見直しは今週の今日以降の日だけ。過ぎた日の案は注意点になる', async () => {
-    const thisWeek = skeletonFor('2026-10-12')
+    const thisWeek = skeletonFor('2026-10-12', TODAY)
     const send = vi.fn(async (_b: CoachRequest, _p: string) => goodReply(thisWeek, TODAY))
     const m = await askCoach('今週を見直して', { intent: 'this_week', today: TODAY, send })
     expect(m.proposal?.days.map((d) => d.date)).toEqual(['2026-10-15', '2026-10-16'])
@@ -140,9 +143,55 @@ describe('askCoach', () => {
     const ctx = JSON.parse(send.mock.calls[0][0].context)
     expect(ctx.skeleton.days.map((d: { date: string }) => d.date)).toEqual(['2026-10-15', '2026-10-16'])
 
-    const past = vi.fn(async () => goodReply(thisWeek))
+    const past = vi.fn(async () => goodReply(skeletonFor('2026-10-12')))
     const m2 = await askCoach('今週を見直して', { intent: 'this_week', today: TODAY, send: past })
     expect(m2.proposal?.issues.join()).toContain('過ぎた日')
+  })
+
+  describe('今週の見直しで、今週もう終えたトレーニングを数える', () => {
+    const THU = '2026-10-15'
+    async function finished(date: string, exerciseId: string, sets: number) {
+      const w = newRecord<Workout>({ date, startedAt: Date.parse(`${date}T10:00:00`), finishedAt: Date.parse(`${date}T11:00:00`) })
+      await db.workouts.add(w)
+      const we = newRecord<WorkoutExercise>({ workoutId: w.id, exerciseId, order: 0, restSec: 90 })
+      await db.workoutExercises.add(we)
+      await db.sets.bulkAdd(Array.from({ length: sets }, (_, i) => newRecord<SetRecord>({
+        workoutId: w.id, workoutExerciseId: we.id, order: i, done: true, weight: 60, reps: 8,
+      })))
+    }
+    const skeletonDates = (send: ReturnType<typeof vi.fn>) =>
+      JSON.parse((send.mock.calls[0] as unknown as [CoachRequest])[0].context).skeleton.days.map((d: { date: string }) => d.date)
+    const reply = vi.fn(async () => ({ message: '了解です' }))
+
+    it('今日まだ終えていなければ今日から', async () => {
+      const send = vi.fn(reply)
+      await askCoach('今週を見直して', { intent: 'this_week', today: THU, send })
+      expect(skeletonDates(send)[0]).toBe(THU)
+    })
+
+    it('今日のトレーニングを終えていれば明日から', async () => {
+      await finished(THU, 'ex-squat', 3)
+      const send = vi.fn(reply)
+      await askCoach('今週を見直して', { intent: 'this_week', today: THU, send })
+      expect(skeletonDates(send)).toEqual(['2026-10-16'])
+    })
+
+    it('「今日できなかった」は明日から', async () => {
+      const send = vi.fn(reply)
+      await askCoach('今日できなかった', { intent: 'this_week', skipToday: true, today: THU, send })
+      expect(skeletonDates(send).every((d: string) => d > THU)).toBe(true)
+    })
+
+    it('終えた日は48時間ルールと週のセット数に数え、AIにも伝える', async () => {
+      // 水曜にベンチプレス8セット。木曜に上半身（胸）は入れない
+      await finished('2026-10-14', 'ex-bench-press', 8)
+      const send = vi.fn(reply)
+      await askCoach('今週を見直して', { intent: 'this_week', today: THU, send })
+      const ctx = JSON.parse((send.mock.calls[0] as unknown as [CoachRequest])[0].context)
+      expect(ctx.skeleton.done).toEqual([{ date: '2026-10-14', muscles: ['chest'] }])
+      const thu = ctx.skeleton.days.find((d: { date: string }) => d.date === THU)
+      expect(thu?.title).not.toBe('上半身')
+    })
   })
 
   it('普通のチャットで今週の案が返ってきたら、今日以降かを確かめる', async () => {

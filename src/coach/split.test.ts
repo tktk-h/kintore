@@ -123,6 +123,30 @@ describe('scheduleDays', () => {
     expect(r.days.map((d) => d.dayType)).toEqual(['upper', 'lower', 'upper', 'lower'])
   })
 
+  it('from より前の日は選ばない', () => {
+    const r = scheduleDays('upper_lower', [MO, TU, TH, FR], MON, 2, { from: '2026-10-15', types: ['upper', 'lower'] })
+    expect(r.days).toEqual([
+      { date: '2026-10-15', dayType: 'upper' },
+      { date: '2026-10-16', dayType: 'lower' },
+    ])
+  })
+
+  it('もう終えた日（fixed）と同じ部位の日は48時間あける', () => {
+    // 水曜に上半身を終えた → 木曜に上半身は入れられない（下半身なら入れられる）
+    const r = scheduleDays('upper_lower', [TH, FR, SA], MON, 2, {
+      from: '2026-10-15', types: ['upper', 'lower'], fixed: [{ date: '2026-10-14', muscles: ['chest', 'back'] }],
+    })
+    expect(r.days.find((d) => d.date === '2026-10-15')?.dayType).not.toBe('upper')
+    expect(r.days.map((d) => d.dayType)).toEqual(['upper', 'lower'])
+    expect(r.days.find((d) => d.dayType === 'upper')!.date >= '2026-10-16').toBe(true)
+  })
+
+  it('残りの日数が0なら空で理由を返す', () => {
+    const r = scheduleDays('upper_lower', [MO, TU], MON, 0, { types: [] })
+    expect(r.days).toEqual([])
+    expect(r.notes.join()).toContain('終え')
+  })
+
   it('行ける曜日がなければ空で理由を返す', () => {
     const r = scheduleDays('full_body', [], MON, 3)
     expect(r.days).toEqual([])

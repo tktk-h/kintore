@@ -19,7 +19,7 @@ const fmt = (n: number) => String(Math.round(n * 10) / 10)
  * - 種目IDが候補（catalog、削除済みを除く）にあり、枠の動きに合っている
  * - セット1〜10、回数1〜30、休憩0〜300秒
  * - 日付が対象週の中で、行ける曜日になっている。同じ日付が2回なく、骨組みの日だけで、骨組みの日が抜けていない
- * - 同じ部位（種目の主に使う部位）の日の間が48時間以上
+ * - 同じ部位（種目の主に使う部位）の日の間が48時間以上（今週もう終えた日 skeleton.done とも）
  * - 1日の合計時間（1セット3分）が1回の時間に収まる
  * 問題の文には種目ID・枠IDを出さない（種目名・動きの名前・「◯日の◯つ目の種目」で示す）。
  * - 部位ごとの週のセット数（主1・補助0.5、有酸素は除く）が目標から大きく外れていない
@@ -86,7 +86,16 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
     dayMuscles.push({ date: day.date, muscles })
   }
 
-  // 同じ部位の日の間は48時間以上
+  // 同じ部位の日の間は48時間以上（今週もう終えた日とも）
+  for (const d of skeleton.done ?? []) {
+    const done = new Set(d.muscles)
+    for (const b of dayMuscles) {
+      if (b.date === d.date || Math.abs(daysBetween(d.date, b.date)) >= MIN_GAP_DAYS) continue
+      const shared = MUSCLES.filter((m) => done.has(m) && b.muscles.has(m))
+      if (shared.length === 0) continue
+      issues.push(`${formatDateJa(d.date)}（もう終えた日）と${formatDateJa(b.date)}は同じ部位（${shared.map((m) => MUSCLE_LABELS[m]).join('・')}）を使うのに、間が48時間未満です。`)
+    }
+  }
   for (let i = 0; i < dayMuscles.length; i++) {
     for (let j = i + 1; j < dayMuscles.length; j++) {
       const a = dayMuscles[i]
@@ -104,10 +113,16 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
     if (!seenDates.has(d.date)) issues.push(`${formatDateJa(d.date)}（${d.title}）が抜けています。骨組みのすべての日を入れてください。`)
   }
 
-  // 部位ごとの週のセット数
+  // 部位ごとの週のセット数（今週もう終えた日の分も足す）
   const [min, max] = skeleton.weeklySetTarget
-  const actual = countMuscleSets(proposal.days.flatMap((d) => d.exercises), catalog)
-  const planned = estimateMuscleSets(skeleton.days.flatMap((d) => d.slots))
+  const done = skeleton.doneMuscleSets ?? {}
+  const plus = (a: Partial<Record<Muscle, number>>) => {
+    const out = { ...a }
+    for (const m of MUSCLES) if (done[m]) out[m] = (out[m] ?? 0) + done[m]!
+    return out
+  }
+  const actual = plus(countMuscleSets(proposal.days.flatMap((d) => d.exercises), catalog))
+  const planned = plus(estimateMuscleSets(skeleton.days.flatMap((d) => d.slots)))
   for (const m of MUSCLES) {
     const v = actual[m] ?? 0
     if (v > max * OVER_RATIO) {

@@ -19,6 +19,18 @@ export interface Skeleton {
   deload: boolean
   /** 日数を減らした・分割法を変えたなどの理由（チャットやAIに伝える） */
   notes: string[]
+  /** 今週の見直しで、対象週にもう終えた日（48時間ルールで数える） */
+  done?: { date: string; muscles: Muscle[] }[]
+  /** もう終えた日の部位ごとのセット数（週のセット数に足す） */
+  doneMuscleSets?: Partial<Record<Muscle, number>>
+}
+/** 対象週にもう終えたトレーニング1日分 */
+export interface DoneDay {
+  date: string
+  /** 主に使った部位（有酸素を除く） */
+  muscles: Muscle[]
+  /** 部位ごとのセット数（主1・補助0.5） */
+  muscleSets: Partial<Record<Muscle, number>>
 }
 export interface ProposalExercise { slot: string; exerciseId: string; sets: number; reps: number; repRange: [number, number]; restSec: number; weight?: number }
 export interface ProposalDay { date: string; title: string; exercises: ProposalExercise[]; note?: string }

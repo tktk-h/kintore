@@ -183,6 +183,16 @@ describe('CoachPage', () => {
     expect(within(alert).getByRole('link', { name: '設定を開く' })).toHaveAttribute('href', '/settings')
   })
 
+  it('「今日できなかった」は明日以降で組み直すよう頼む', async () => {
+    await ready()
+    const send = vi.fn<SendToCoach>(async () => ({ message: '了解です' }))
+    open(send)
+    await userEvent.click(await screen.findByRole('button', { name: '今日できなかった' }))
+    await waitFor(() => expect(send).toHaveBeenCalled())
+    const ctx = JSON.parse(send.mock.calls[0][0].context)
+    expect(ctx.request).toContain(`${addDays(todayKey(), 1)} 以降`)
+  })
+
   it('送信中は「考え中…」を出し、送信できない', async () => {
     await ready()
     let resolve!: (r: CoachReply) => void

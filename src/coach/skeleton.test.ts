@@ -138,6 +138,22 @@ describe('buildSkeleton', () => {
     expect(s.notes.join()).toContain('希望')
   })
 
+  it('今週の見直し：from 以降だけで組み、終えた日の分の日の種類と週のセット数を差し引く', () => {
+    // 月曜に上半身（胸・背中など）を終えた。水曜から組み直す
+    const done = [{ date: '2026-10-12', muscles: ['chest' as const, 'back' as const, 'front_delt' as const], muscleSets: { chest: 8, back: 8, front_delt: 4 } }]
+    const s = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1, from: '2026-10-14', done })
+    expect(s.days.every((d) => d.date >= '2026-10-14')).toBe(true)
+    // 4日のうち1日終えたので残り3日分（下半身・上半身・下半身）。行ける日は木・金の2日
+    expect(s.days.map((d) => d.dayType)).toEqual(['lower', 'upper'])
+    expect(s.done).toEqual([{ date: '2026-10-12', muscles: ['chest', 'back', 'front_delt'] }])
+    expect(s.doneMuscleSets).toEqual({ chest: 8, back: 8, front_delt: 4 })
+    // 胸はすでに8セットあるので、残りの上半身の日の胸の枠は少なめ
+    const fresh = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1, from: '2026-10-14' })
+    const chestSets = (x: Skeleton) => estimateMuscleSets(allSlots(x)).chest ?? 0
+    expect(chestSets(s)).toBeLessThan(chestSets(fresh))
+    expect(chestSets(s) + 8).toBeLessThanOrEqual(16 * 1.25)
+  })
+
   it('週の途中の日付を渡しても月曜から始める', () => {
     const s = buildSkeleton({ profile: profile(), weekStart: '2026-10-14', weeksSinceDeload: 1 })
     expect(s.weekStart).toBe(MON)

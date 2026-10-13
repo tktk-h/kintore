@@ -3,7 +3,8 @@ import { buildCoachRequest, type CoachIntent } from '../../coach/context'
 import { decideLoad, defaultWeightFor } from '../../coach/load'
 import { toProposal } from '../../coach/response'
 import { buildSkeleton } from '../../coach/skeleton'
-import type { Proposal, Skeleton } from '../../coach/types'
+import type { DoneDay, Proposal, Skeleton } from '../../coach/types'
+import { countMuscleSets } from '../../coach/volume'
 import { validateProposal } from '../../coach/validate'
 import type { ChatMessage, Exercise, Profile } from '../../db/types'
 import { addDays, formatDateJa, mondayOf, todayKey } from '../../lib/dates'
@@ -14,6 +15,8 @@ import { sendToCoach as defaultSend, type SendToCoach } from './client'
 export interface AskCoachOptions {
   /** 来週のメニュー／今週の見直し（今日以降）／普通のチャット */
   intent: CoachIntent
+  /** 「今日できなかった」：今日は組まずに明日から組み直す */
+  skipToday?: boolean
   /** 基準日（テスト用。既定は今日） */
   today?: string
   /** 呼び出し方（テストで差し替える） */
@@ -28,10 +31,41 @@ function targetWeek(intent: CoachIntent, today: string): string {
   return intent === 'this_week' ? thisWeek : addDays(thisWeek, 7)
 }
 
-/** 骨組みを作る。今週の見直しは今日以降の日だけにする */
-function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, earliest?: string): Skeleton {
-  const s = buildSkeleton({ profile, weekStart, weeksSinceDeload: inputs.weeksSinceDeload, slotSetDelta: inputs.slotSetDelta })
-  return earliest ? { ...s, days: s.days.filter((d) => d.date >= earliest) } : s
+/** 対象週に今日までにもう終えたトレーニング（日付ごと）。48時間ルールと週のセット数に数える */
+export function doneDaysOf(inputs: CoachInputs, weekStart: string, today: string): DoneDay[] {
+  const byDate = new Map<string, { exerciseId: string; sets: number }[]>()
+  for (const w of inputs.history.workouts) {
+    if (w.date < weekStart || w.date > today) continue
+    const list = byDate.get(w.date) ?? []
+    for (const x of w.exercises) list.push({ exerciseId: x.exerciseId, sets: x.sets.length })
+    byDate.set(w.date, list)
+  }
+  const byId = new Map(inputs.catalog.map((e) => [e.id, e]))
+  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, list]) => ({
+    date,
+    muscles: [...new Set(list.flatMap((x) => {
+      const e = byId.get(x.exerciseId)
+      return e && e.pattern !== 'cardio' ? (e.primary ?? []) : []
+    }))],
+    muscleSets: countMuscleSets(list, inputs.catalog),
+  }))
+}
+
+/**
+ * 今週の見直しで組み始める日：「今日できなかった」か、今日のトレーニングをもう終えていれば明日、そうでなければ今日
+ */
+function startDate(done: DoneDay[], today: string, skipToday: boolean): string {
+  return skipToday || done.some((d) => d.date === today) ? addDays(today, 1) : today
+}
+
+/**
+ * 骨組みを作る。今週の見直し（from あり）は from 以降の日だけで組み、もう終えた日を数える
+ */
+function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, thisWeek?: { from: string; done: DoneDay[] }): Skeleton {
+  return buildSkeleton({
+    profile, weekStart, weeksSinceDeload: inputs.weeksSinceDeload, slotSetDelta: inputs.slotSetDelta,
+    ...(thisWeek ? { from: thisWeek.from, done: thisWeek.done } : {}),
+  })
 }
 
 /**
@@ -87,6 +121,8 @@ interface Finalized { proposal: Proposal; issues: string[]; notes: string[] }
  */
 function finalize(reply: CoachReply, ctx: {
   inputs: CoachInputs; profile: Profile; skeleton: Skeleton; intent: CoachIntent; today: string
+  /** 今週の見直しで組み始める日 */
+  from: string
   thisWeek?: { inputs: CoachInputs; skeleton: Skeleton }
 }): Finalized | undefined {
   if (!reply.proposal) return undefined
@@ -94,7 +130,7 @@ function finalize(reply: CoachReply, ctx: {
   const forThisWeek = ctx.intent === 'this_week'
     || (ctx.intent === 'chat' && ctx.thisWeek !== undefined && reply.proposal.days.some((d) => d.date < addDays(thisMonday, 7)))
   const { inputs, skeleton } = forThisWeek && ctx.thisWeek ? ctx.thisWeek : ctx
-  const earliest = forThisWeek ? ctx.today : undefined
+  const earliest = forThisWeek ? ctx.from : undefined
   const base = { ...toProposal(reply.proposal, skeleton, inputs.catalog), deload: skeleton.deload }
   const { proposal, notes } = applyLoads(base, inputs, ctx.profile, inputs.catalog)
   return { proposal, issues: check(proposal, skeleton, inputs, ctx.profile, earliest), notes }
@@ -126,14 +162,16 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const prior = isResend ? inputs.chat.slice(0, -1) : inputs.chat
   if (!isResend) await addChatMessage({ role: 'user', text })
 
-  const earliest = intent === 'this_week' || intent === 'chat' ? today : undefined
-  const skeleton = skeletonFor(inputs, profile, weekStart, intent === 'this_week' ? today : undefined)
+  // 今週の見直しは、今週もう終えた日を数えて、今日（終えていれば明日）以降で組み直す
+  const thisMonday = mondayOf(today)
+  const thisWeekInputs = intent === 'this_week' ? inputs : intent === 'chat' ? await loadCoachInputs(thisMonday, today) : undefined
+  const done = thisWeekInputs ? doneDaysOf(thisWeekInputs, thisMonday, today) : []
+  const from = startDate(done, today, opts.skipToday ?? false)
+  const earliest = intent === 'this_week' || intent === 'chat' ? from : undefined
+  const skeleton = skeletonFor(inputs, profile, weekStart, intent === 'this_week' ? { from, done } : undefined)
   // 普通のチャットで今週の案が返ってきたときのために、今週（今日以降）の骨組みも用意する
-  const thisWeek = intent === 'chat'
-    ? await (async () => {
-      const i = await loadCoachInputs(mondayOf(today), today)
-      return { inputs: i, skeleton: skeletonFor(i, profile, mondayOf(today), today) }
-    })()
+  const thisWeek = intent === 'chat' && thisWeekInputs
+    ? { inputs: thisWeekInputs, skeleton: skeletonFor(thisWeekInputs, profile, thisMonday, { from, done }) }
     : undefined
 
   const request: CoachRequest = buildCoachRequest({
@@ -141,7 +179,7 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
     previousSlots: inputs.previousSlots, chat: prior, userText: text, intent, earliestDate: earliest, today,
   })
   const passcode = inputs.settings.coachPasscode ?? ''
-  const ctx = { inputs, profile, skeleton, intent, today, thisWeek }
+  const ctx = { inputs, profile, skeleton, intent, today, from, thisWeek }
 
   let reply = await send(request, passcode)
   let result = finalize(reply, ctx)

@@ -212,6 +212,7 @@ export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
       weeklySetTarget: skeleton.weeklySetTarget,
       deload: skeleton.deload,
       notes: skeleton.notes,
+      ...(skeleton.done ? { done: skeleton.done } : {}),
       days: skeleton.days.map((d) => ({
         date: d.date,
         title: d.title,

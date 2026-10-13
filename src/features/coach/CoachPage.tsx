@@ -13,13 +13,13 @@ import { askCoach } from './coachService'
 import { ProposalCard } from './ProposalCard'
 
 /** よく使う依頼のボタン */
-export const QUICK_ASKS: { text: string; intent: CoachIntent }[] = [
+export const QUICK_ASKS: { text: string; intent: CoachIntent; skipToday?: boolean }[] = [
   { text: '来週のメニューを作って', intent: 'next_week' },
-  { text: '今日できなかった', intent: 'this_week' },
+  { text: '今日できなかった', intent: 'this_week', skipToday: true },
   { text: '今週を見直して', intent: 'this_week' },
 ]
 
-interface Failure { text: string; intent: CoachIntent; message: string; kind?: CoachErrorKind }
+interface Failure { text: string; intent: CoachIntent; skipToday?: boolean; message: string; kind?: CoachErrorKind }
 
 function errorOf(e: unknown): { message: string; kind?: CoachErrorKind } {
   if (e instanceof CoachError) return { message: e.message || COACH_ERROR_MESSAGES[e.kind], kind: e.kind }
@@ -51,17 +51,17 @@ export function CoachPage({ send = sendToCoach }: Props) {
     endRef.current?.scrollIntoView?.({ block: 'end' })
   }, [messages?.length, sending, failure])
 
-  const ask = async (body: string, intent: CoachIntent) => {
+  const ask = async (body: string, intent: CoachIntent, skipToday?: boolean) => {
     const t = body.trim()
     if (!t || sending) return
     setSending(true)
     setFailure(undefined)
     try {
-      await askCoach(t, { intent, send })
+      await askCoach(t, { intent, send, skipToday })
       // 入力欄の文を送ったときだけ入力欄を空にする（失敗したときは残して送り直せるようにする）
       setText((cur) => (cur.trim() === t ? '' : cur))
     } catch (e) {
-      setFailure({ text: t, intent, ...errorOf(e) })
+      setFailure({ text: t, intent, skipToday, ...errorOf(e) })
     } finally {
       setSending(false)
     }
@@ -136,7 +136,7 @@ export function CoachPage({ send = sendToCoach }: Props) {
         <div className="card warning stack-sm" role="alert">
           <p>{failure.message}</p>
           <div className="row">
-            <button type="button" className="btn btn-sm" disabled={!canSend} onClick={() => void ask(failure.text, failure.intent)}>
+            <button type="button" className="btn btn-sm" disabled={!canSend} onClick={() => void ask(failure.text, failure.intent, failure.skipToday)}>
               <RotateCw aria-hidden="true" />
               もう一度送る
             </button>
@@ -154,7 +154,7 @@ export function CoachPage({ send = sendToCoach }: Props) {
         {!online && <p className="composer-note">オフラインのため送信できません。電波のよい所で送ってください。</p>}
         <div className="chips coach-quick" role="group" aria-label="よく使う依頼">
           {QUICK_ASKS.map((q) => (
-            <button key={q.text} type="button" className="chip" disabled={!canSend} onClick={() => void ask(q.text, q.intent)}>
+            <button key={q.text} type="button" className="chip" disabled={!canSend} onClick={() => void ask(q.text, q.intent, q.skipToday)}>
               {q.text}
             </button>
           ))}
