@@ -2,6 +2,8 @@ import { HashRouter, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { ToastProvider } from './components/Toast'
 import { BodyPage } from './features/body/BodyPage'
+import { CoachPage } from './features/coach/CoachPage'
+import { ProfilePage } from './features/coach/ProfilePage'
 import { DayDetailPage } from './features/calendar/DayDetailPage'
 import { ExerciseEditPage } from './features/exercises/ExerciseEditPage'
 import { ExerciseListPage } from './features/exercises/ExerciseListPage'
@@ -20,6 +22,8 @@ export function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<HomePage />} />
+              <Route path="coach" element={<CoachPage />} />
+              <Route path="coach/profile" element={<ProfilePage />} />
               <Route path="exercises" element={<ExerciseListPage />} />
               <Route path="exercises/new" element={<ExerciseEditPage />} />
               <Route path="exercises/:id" element={<ExerciseEditPage />} />

@@ -5,6 +5,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/components.css'
 import './styles/workout.css'
+import './styles/coach.css'
 
 // 端末の容量が少ないときにブラウザがデータを消さないよう頼む
 void navigator.storage?.persist?.()

@@ -93,9 +93,9 @@ export function candidatesFor(patterns: MovementPattern[], catalog: Exercise[], 
     && equipment.includes(e.equipment) && !(lowBack && e.pattern === 'squat' && e.equipment === 'barbell'))
 }
 
-const GOAL_LABELS: Record<Profile['goal'], string> = { hypertrophy: '筋肥大', strength: '筋力アップ', fat_loss: '減量', health: '健康維持' }
-const EXPERIENCE_LABELS: Record<Profile['experience'], string> = { none: '初めて', under_1y: '1年未満', y1_3: '1〜3年', over_3y: '3年以上' }
-const ACCESS_LABELS: Record<EquipmentAccess, string> = {
+export const GOAL_LABELS: Record<Profile['goal'], string> = { hypertrophy: '筋肥大', strength: '筋力アップ', fat_loss: '減量', health: '健康維持' }
+export const EXPERIENCE_LABELS: Record<Profile['experience'], string> = { none: '初めて', under_1y: '1年未満', y1_3: '1〜3年', over_3y: '3年以上' }
+export const ACCESS_LABELS: Record<EquipmentAccess, string> = {
   gym_free: 'ジムのフリーウェイト', gym_machine: 'ジムのマシン', home_dumbbell: '自宅のダンベル', bodyweight: '自重のみ',
 }
 const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']

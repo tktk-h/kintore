@@ -6,6 +6,7 @@ interface Props {
   value: number
   step: number
   min?: number
+  max?: number
   unit?: string
   onChange: (value: number) => void
 }
@@ -17,7 +18,7 @@ const round = (v: number) => Math.round(v * 100) / 100
  * value が外から変わったときだけ、それに合わせ直す。
  * 連打は再描画を待たずに届くことがあるので、最新の値は ref からも読む
  */
-export function Stepper({ label, value: propValue, step, min = 0, unit, onChange }: Props) {
+export function Stepper({ label, value: propValue, step, min = 0, max = Infinity, unit, onChange }: Props) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(propValue)
   const [seen, setSeen] = useState(propValue)
@@ -27,7 +28,8 @@ export function Stepper({ label, value: propValue, step, min = 0, unit, onChange
     setValue(propValue)
     latest.current = propValue
   }
-  const change = (v: number) => {
+  const change = (raw: number) => {
+    const v = Math.min(max, raw)
     latest.current = v
     setValue(v)
     onChange(v)
