@@ -108,3 +108,19 @@ export function seedExercises(): Exercise[] {
     deleted: false,
   }))
 }
+
+/**
+ * 定番種目に、動きの種類・部位・複数関節の情報を書き足す（名前などは変えない）。
+ * 自作種目と、すでに動きの種類がある種目はそのまま。書き足したときは true。
+ * DB の version 2 へのアップグレードと、古いバックアップの読み込みで使う。
+ */
+const SEED_BY_ID = new Map(seedExercises().map((e) => [e.id, e]))
+export function backfillSeedMetadata(e: Exercise): boolean {
+  const seed = SEED_BY_ID.get(e.id)
+  if (e.custom || !seed || e.pattern !== undefined) return false
+  e.pattern = seed.pattern
+  e.primary = [...(seed.primary ?? [])]
+  e.secondary = [...(seed.secondary ?? [])]
+  e.compound = seed.compound
+  return true
+}

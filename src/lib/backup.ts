@@ -1,4 +1,6 @@
 import { db } from '../db/db'
+import { backfillSeedMetadata } from '../db/seedExercises'
+import type { Exercise } from '../db/types'
 import { toDateKey } from './dates'
 
 const TABLES = [
@@ -94,6 +96,10 @@ export async function importBackup(file: BackupFile): Promise<void> {
         await db.table(t).clear()
         await db.table(t).bulkAdd(file.data[t])
       }
+      // フェーズ1b より前のバックアップの定番種目には動きの種類などがないので書き足す（DB の version 2 と同じ）
+      await db.exercises.toCollection().modify((e: Exercise) => {
+        backfillSeedMetadata(e)
+      })
     },
   )
 }

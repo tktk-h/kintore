@@ -75,6 +75,22 @@ describe('backup', () => {
     expect(await listChatMessages()).toEqual([])
   })
 
+  it('種目に動きの種類がない古いバックアップを読み込むと、定番種目に情報が足される（自作種目はそのまま）', async () => {
+    const backup = await exportBackup()
+    const v1 = (backup.data.exercises as Record<string, unknown>[]).map(
+      ({ pattern: _p, primary: _pr, secondary: _s, compound: _c, ...rest }) => rest,
+    )
+    const custom = {
+      id: 'my-ex', name: '自作', bodyPart: 'chest', equipment: 'other', logType: 'reps', defaultRestSec: 60,
+      custom: true, createdAt: 0, updatedAt: 0, deleted: false,
+    }
+    const text = JSON.stringify({ ...backup, data: { ...backup.data, exercises: [...v1, custom] } })
+
+    await importBackup(parseBackup(text))
+    expect(await db.exercises.get('ex-bench-press')).toMatchObject({ pattern: 'horizontal_push', primary: ['chest'], compound: true })
+    expect((await db.exercises.get('my-ex'))?.pattern).toBeUndefined()
+  })
+
   it('チャットの形がおかしければエラー', async () => {
     const backup = await exportBackup()
     const broken = { ...backup, data: { ...backup.data, chatMessages: [{ id: 'c', deleted: false, role: 'robot', text: 'x', createdAt: 0, updatedAt: 0 }] } }
