@@ -472,3 +472,9 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 
 /* 折り返して並べるチップ（複数選択など） */
 .chips.chips-wrap { flex-wrap: wrap; overflow-x: visible; margin: 0; padding: 0; }
+
+/* ===== タブ（切り替え） ===== */
+.tabs { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 4px; padding: 4px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); }
+.tabs button { appearance: none; min-height: 40px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-pill); background: transparent; color: var(--muted); font-size: var(--fs-sub); font-weight: 700; transition: background-color 0.15s, color 0.15s; }
+.tabs button.selected { background: var(--surface-3); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+.tabs button:active { transform: scale(0.97); }

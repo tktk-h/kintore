@@ -1,19 +1,13 @@
-import { ChevronRight, Plus } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router'
 import { BODY_PART_LABELS, EQUIPMENT_LABELS } from '../../db/types'
 import { useExerciseFilter } from './ExerciseFilter'
 
-export function ExerciseListPage() {
+/** 種目の一覧（「メニュー」画面のタブの中身） */
+export function ExerciseList() {
   const { results, controls } = useExerciseFilter()
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>種目</h1>
-        <Link className="btn btn-primary btn-sm" to="/exercises/new">
-          <Plus aria-hidden="true" />
-          追加
-        </Link>
-      </header>
+    <>
       {controls}
       <ul className="list">
         {results.map((e) => (
@@ -28,6 +22,6 @@ export function ExerciseListPage() {
           </li>
         ))}
       </ul>
-    </div>
+    </>
   )
 }

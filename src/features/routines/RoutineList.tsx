@@ -1,20 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight, ClipboardList, Plus } from 'lucide-react'
+import { ChevronRight, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router'
 import { EmptyState } from '../../components/EmptyState'
 import { listRoutines } from '../../repo/routines'
 
-export function RoutineListPage() {
+/** マイメニューの一覧（「メニュー」画面のタブの中身） */
+export function RoutineList() {
   const routines = useLiveQuery(listRoutines)
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>マイメニュー</h1>
-        <Link className="btn btn-primary btn-sm" to="/routines/new">
-          <Plus aria-hidden="true" />
-          新規
-        </Link>
-      </header>
+    <>
       {routines?.length === 0 && (
         <EmptyState icon={ClipboardList}>
           <p>よくやる種目の組み合わせを保存しておくと、すぐにトレーニングを始められます。</p>
@@ -33,6 +27,6 @@ export function RoutineListPage() {
           </li>
         ))}
       </ul>
-    </div>
+    </>
   )
 }

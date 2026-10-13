@@ -26,8 +26,8 @@ const EMPTY: ExerciseInput = { name: '', bodyPart: 'chest', equipment: 'barbell'
 export function ExerciseEditPage() {
   const { id } = useParams()
   const existing = useLiveQuery(() => (id ? getExercise(id).then((e) => e ?? null) : Promise.resolve(null)), [id])
-  if (existing === undefined) return <div className="page"><PageHeader backTo="/exercises" title="読み込み中…" /></div>
-  if (id && existing === null) return <div className="page"><PageHeader backTo="/exercises" title="種目が見つかりません" /></div>
+  if (existing === undefined) return <div className="page"><PageHeader backTo="/routines?tab=exercises" title="読み込み中…" /></div>
+  if (id && existing === null) return <div className="page"><PageHeader backTo="/routines?tab=exercises" title="種目が見つかりません" /></div>
   return <ExerciseForm key={id ?? 'new'} id={id} initial={existing ?? EMPTY} />
 }
 
@@ -86,12 +86,12 @@ function ExerciseForm({ id, initial }: { id?: string; initial: ExerciseInput }) 
       secondary: form.pattern || primary.length > 0 || secondary.length > 0 ? secondary : undefined,
     }
     const ok = await run(() => (id ? updateExercise(id, input) : createExercise(input)))
-    if (ok) navigate('/exercises')
+    if (ok) navigate('/routines?tab=exercises')
   }
 
   return (
     <div className="page">
-      <PageHeader backTo="/exercises" title={id ? '種目を編集' : '種目を追加'} />
+      <PageHeader backTo="/routines?tab=exercises" title={id ? '種目を編集' : '種目を追加'} />
       <label className="field">
         名前
         <input type="text" value={form.name} onChange={(e) => set({ name: e.target.value })} />

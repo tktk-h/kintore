@@ -65,4 +65,18 @@ expect(screen.getByRole('button', { name: '戻る' })).toBeInTheDocument()
       expect(saved?.compound).toBeUndefined()
     })
   })
+
+  it('保存すると「メニュー」の種目タブへ戻る', async () => {
+    renderPage('/exercises/new', '/exercises/new', <ExerciseEditPage />)
+    await userEvent.type(await screen.findByRole('textbox', { name: '名前' }), '謎の種目')
+    await userEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(await screen.findByTestId('current-path')).toHaveTextContent('/routines')
+  })
+
+  it('履歴がないときの戻る先は「メニュー」の種目タブ', async () => {
+    renderPage('/exercises/:id', '/exercises/ex-bench-press', <ExerciseEditPage />)
+    await screen.findByRole('textbox', { name: '名前' })
+    await userEvent.click(screen.getByRole('button', { name: '戻る' }))
+    expect(await screen.findByTestId('current-path')).toHaveTextContent('/routines')
+  })
 })
