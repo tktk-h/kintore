@@ -74,7 +74,8 @@ function combinations<T>(items: T[], k: number): T[][] {
  * 行ける曜日（0=日〜6=土）から、対象週（月曜始まり）の日付を選んで日の種類を並べる。
  * 同じ部位を含む日の間は48時間以上あける（設計書「1. 分割法」）。
  * 方法：行ける日から count 日を選ぶ組み合わせをすべて試し、分割法の並び順に日の種類を当てはめて
- * 48時間ルールを満たすものの中から、次の週への折り返しを含めた最小の間隔が最も大きいもの（同じなら早い日付）を選ぶ。
+ * 48時間ルールを満たすものの中から、次の週への折り返しを含めた最小の間隔が最も大きいもの、
+ * 同じなら連続する日（間隔1日、折り返しを含む）の組が少ないもの、それも同じなら早い日付を選ぶ。
  * 1つもなければ日数を1日ずつ減らし、減らした理由を notes に入れる。
  */
 export function scheduleDays(
@@ -90,13 +91,19 @@ export function scheduleDays(
   for (let n = Math.min(count, available.length); n >= 1; n--) {
     let best: number[] | undefined
     let bestScore = -1
+    let bestAdjacent = Infinity
     for (const combo of combinations(available, n)) {
       const ok = combo.every((a, i) =>
         combo.slice(i + 1).every((b, j) => b - a >= MIN_GAP_DAYS || !sharesMuscles(types[i], types[i + 1 + j])))
       if (!ok) continue
       const gaps = combo.map((a, i) => (i + 1 < n ? combo[i + 1] : combo[0] + 7) - a)
       const score = Math.min(...gaps)
-      if (score > bestScore) { best = combo; bestScore = score }
+      const adjacent = gaps.filter((g) => g === 1).length
+      if (score > bestScore || (score === bestScore && adjacent < bestAdjacent)) {
+        best = combo
+        bestScore = score
+        bestAdjacent = adjacent
+      }
     }
     if (!best) continue
     const days = best.map((offset, i) => ({ date: addDays(weekStart, offset), dayType: types[i] }))

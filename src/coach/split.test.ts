@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { daysBetween } from '../lib/dates'
 import { chooseSplit, dayTypeSequence, effectiveDays, scheduleDays } from './split'
 
 const MON = '2026-10-12'
@@ -111,6 +112,15 @@ describe('scheduleDays', () => {
   it('間隔に余裕があれば、なるべく間をあける', () => {
     const r = scheduleDays('full_body', [MO, TU, WE, TH, FR], MON, 2)
     expect(r.days.map((d) => d.date)).toEqual(['2026-10-12', '2026-10-15'])
+  })
+
+  it('間隔が同じなら、連続する日の組が少ない並びを選ぶ（毎日行ける・上下×4 → 月〜木にしない）', () => {
+    const r = scheduleDays('upper_lower', [SU, MO, TU, WE, TH, FR, SA], MON, 4)
+    const offsets = r.days.map((d) => daysBetween(MON, d.date))
+    expect(offsets).not.toEqual([0, 1, 2, 3])
+    const gaps = offsets.map((o, i) => (i + 1 < offsets.length ? offsets[i + 1] : offsets[0] + 7) - o)
+    expect(gaps.filter((g) => g === 1)).toHaveLength(1)
+    expect(r.days.map((d) => d.dayType)).toEqual(['upper', 'lower', 'upper', 'lower'])
   })
 
   it('行ける曜日がなければ空で理由を返す', () => {
