@@ -154,6 +154,24 @@ describe('buildSkeleton', () => {
     expect(chestSets(s) + 8).toBeLessThanOrEqual(16 * 1.25)
   })
 
+  it('前の週のその枠の実際のセット数から増減する（楽が続けば上限まで積み上がる）', () => {
+    const base = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1 })
+    const get = (sk: Skeleton, slot: string) => allSlots(sk).filter((x) => x.slot === slot)
+    expect(get(base, 'lower.4')[0].sets).toBe(2) // 配分だけなら裏ももの単関節は2セット
+    const week = (prev: number, delta: -1 | 0 | 1) => buildSkeleton({
+      profile: profile(), weekStart: MON, weeksSinceDeload: 1,
+      slotBaseSets: { 'lower.4': prev }, slotSetDelta: { 'lower.4': delta },
+    })
+    // 前の週3セット・楽 → 4セット（配分の2＋1ではない）
+    expect(get(week(3, 1), 'lower.4').every((x) => x.sets === 4)).toBe(true)
+    // 前の週4セット・楽 → 上限4のまま
+    expect(get(week(4, 1), 'lower.4').every((x) => x.sets === 4)).toBe(true)
+    // 前の週3セット・そのまま → 3セット
+    expect(get(week(3, 0), 'lower.4').every((x) => x.sets === 3)).toBe(true)
+    // 前の週2セット・きつい → 下限2のまま
+    expect(get(week(2, -1), 'lower.4').every((x) => x.sets === 2)).toBe(true)
+  })
+
   it('週の途中の日付を渡しても月曜から始める', () => {
     const s = buildSkeleton({ profile: profile(), weekStart: '2026-10-14', weeksSinceDeload: 1 })
     expect(s.weekStart).toBe(MON)

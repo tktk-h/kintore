@@ -98,6 +98,15 @@ describe('loadCoachInputs', () => {
     const r = await loadCoachInputs(NEXT, TODAY)
     expect(r.previousSlots).toEqual({ 'upper.1': 'ex-bench-press', 'upper.2': 'ex-seated-cable-row', 'upper.6': 'ex-dumbbell-curl' })
     expect(r.slotSetDelta).toEqual({ 'upper.1': -1, 'upper.2': 1, 'upper.6': 0 })
+    // 前のAIの週の枠ごとの実際のセット数
+    expect(r.slotBaseSets).toEqual({ 'upper.1': 1, 'upper.2': 1, 'upper.6': 1 })
+  })
+
+  it('前のAIの週が軽めの週なら、枠ごとのセット数は引き継がない', async () => {
+    const bench = { exerciseId: 'ex-bench-press', restSec: 150, sets: [{ weight: 60, reps: 6 }, { weight: 60, reps: 6 }], slot: 'upper.1', repRange: [6, 10] as [number, number] }
+    await addPlan({ date: '2026-10-12', source: 'ai', deload: true, exercises: [bench] })
+    const r = await loadCoachInputs(NEXT, TODAY)
+    expect(r.slotBaseSets).toEqual({})
   })
 
   it('時間の種目（プランク）は回数がなくてもセット数を減らさない', async () => {

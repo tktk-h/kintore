@@ -25,6 +25,8 @@ export interface CoachInputs {
   previousSlots: Partial<Record<string, string>>
   /** 前のAIの週の枠ごとの、きつさによるセット数の増減 */
   slotSetDelta: Partial<Record<string, -1 | 0 | 1>>
+  /** 前のAIの週の枠ごとの実際のセット数（軽めの週だったときは空。来週のセット数はここから増減する） */
+  slotBaseSets: Partial<Record<string, number>>
   /** 前回の軽めの週から何週たったか */
   weeksSinceDeload: number
   chat: ChatMessage[]
@@ -117,10 +119,15 @@ export async function loadCoachInputs(weekStart: string, today = todayKey()): Pr
   const aiPlans = plans.filter((p) => p.source === 'ai')
   const previousSlots: Partial<Record<string, string>> = {}
   const slotSetDelta: Partial<Record<string, -1 | 0 | 1>> = {}
-  for (const p of lastAiWeek(aiPlans, monday)) {
+  const slotBaseSets: Partial<Record<string, number>> = {}
+  const prevWeek = lastAiWeek(aiPlans, monday)
+  // 軽めの週はセット数を半分にしているので、次の週のもとにしない
+  const prevWasDeload = prevWeek.some((p) => p.deload)
+  for (const p of prevWeek) {
     for (const pe of p.exercises) {
       if (!pe.slot) continue
       previousSlots[pe.slot] = pe.exerciseId
+      if (!prevWasDeload && pe.sets.length > 0) slotBaseSets[pe.slot] = pe.sets.length
       const ex = exById.get(pe.exerciseId)
       const history = sessions[pe.exerciseId] ?? []
       if (!ex || history.length === 0) { slotSetDelta[pe.slot] = 0; continue }
@@ -139,6 +146,6 @@ export async function loadCoachInputs(weekStart: string, today = todayKey()): Pr
   return {
     profile, catalog, settings, sessions,
     history: { workouts: historyWorkouts, missed },
-    existingPlans, previousSlots, slotSetDelta, weeksSinceDeload, chat,
+    existingPlans, previousSlots, slotSetDelta, slotBaseSets, weeksSinceDeload, chat,
   }
 }

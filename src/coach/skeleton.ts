@@ -24,6 +24,11 @@ export interface BuildSkeletonArgs {
    * 前の週の枠のID（例：'upper.2'）ごと。同じIDの枠がすべての日で増減する。
    */
   slotSetDelta?: Partial<Record<string, -1 | 0 | 1>>
+  /**
+   * 前の週のAIの予定の、枠ごとの実際のセット数。あればその枠はこの数に setDelta を足したもの（2〜4）にする
+   * （設計書「6. きつさによる調整」：楽が続けば週ごとに1セットずつ積み上がる）
+   */
+  slotBaseSets?: Partial<Record<string, number>>
   /** 今週の見直し：この日付より前の日は組まない */
   from?: string
   /** 今週の見直し：対象週にもう終えた日。その日数分の日の種類を除き、48時間ルールと週のセット数に数える */
@@ -99,18 +104,28 @@ function remainingTypes(types: DayType[], done: DoneDay[]): DayType[] {
   return rest
 }
 
+/**
+ * きつさによるセット数の増減。前の週のその枠のセット数（base）があればそこから、なければ配分した数から
+ * 1セット増減する（2〜4の範囲。増やすのは1日の時間と週の上限の1.25倍に収まるときだけ）。
+ */
 function applySetDelta(
-  days: DayPlan[], delta: BuildSkeletonArgs['slotSetDelta'], [, max]: [number, number], dayMax: number, done: MuscleSets,
+  days: DayPlan[], delta: BuildSkeletonArgs['slotSetDelta'], base: BuildSkeletonArgs['slotBaseSets'],
+  [, max]: [number, number], dayMax: number, done: MuscleSets,
 ) {
-  if (!delta) return
+  if (!delta && !base) return
   const cap = max * OVERSHOOT
   for (const day of days) {
     for (const s of day.slots) {
-      const d = delta[s.slot] ?? 0
-      const total = day.slots.reduce((a, x) => a + x.sets, 0)
-      const est = withDone(estimateMuscleSets(days.flatMap((x) => x.slots)), done)
-      if (d > 0 && s.sets < MAX_SLOT_SETS && total < dayMax && fitsCap(est, s, cap)) s.sets++
-      if (d < 0 && s.sets > MIN_SLOT_SETS) s.sets--
+      const d = delta?.[s.slot] ?? 0
+      const prev = base?.[s.slot]
+      const want = Math.min(MAX_SLOT_SETS, Math.max(MIN_SLOT_SETS, (prev ?? s.sets) + d))
+      while (s.sets > want) s.sets--
+      while (s.sets < want) {
+        const total = day.slots.reduce((a, x) => a + x.sets, 0)
+        const est = withDone(estimateMuscleSets(days.flatMap((x) => x.slots)), done)
+        if (total >= dayMax || !fitsCap(est, s, cap)) break
+        s.sets++
+      }
     }
   }
 }
@@ -121,7 +136,9 @@ function applySetDelta(
  * 順番：分割法 → 日の並び（48時間ルール） → 枠（2セットずつ） → 時間に収める → セット数を配る
  * → きつさによる増減 → デロードなら半分。
  */
-export function buildSkeleton({ profile, weekStart: anyDay, weeksSinceDeload, slotSetDelta, from, done: doneArg }: BuildSkeletonArgs): Skeleton {
+export function buildSkeleton({
+  profile, weekStart: anyDay, weeksSinceDeload, slotSetDelta, slotBaseSets, from, done: doneArg,
+}: BuildSkeletonArgs): Skeleton {
   const weekStart = mondayOf(anyDay)
   const { experience, goal } = profile
   const notes: string[] = []
@@ -179,7 +196,7 @@ export function buildSkeleton({ profile, weekStart: anyDay, weeksSinceDeload, sl
   })
 
   distributeSets(days, target, dayMax, doneSets)
-  applySetDelta(days, slotSetDelta, target, dayMax, doneSets)
+  applySetDelta(days, slotSetDelta, slotBaseSets, target, dayMax, doneSets)
 
   const deload = weeksSinceDeload >= DELOAD_EVERY_WEEKS
   if (deload) {
