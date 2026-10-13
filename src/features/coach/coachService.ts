@@ -1,6 +1,6 @@
 import type { CoachChatTurn, CoachReply, CoachRequest } from '../../../api/_lib/schema'
 import { buildCoachRequest, type CoachIntent } from '../../coach/context'
-import { decideLoad } from '../../coach/load'
+import { decideLoad, defaultWeightFor } from '../../coach/load'
 import { toProposal } from '../../coach/response'
 import { buildSkeleton } from '../../coach/skeleton'
 import type { Proposal, Skeleton } from '../../coach/types'
@@ -53,6 +53,7 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
         step: inputs.settings.weightStep,
         baseline: baseline ? { weight: baseline.weight, reps: baseline.reps } : undefined,
         logType: ex.logType,
+        defaultWeight: defaultWeightFor(ex),
       })
       if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !baseline && ex.logType === 'weight_reps') notes.add(decision.reason)
       const next = { ...x }

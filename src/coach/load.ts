@@ -1,4 +1,4 @@
-import type { LogType, Rating } from '../db/types'
+import type { Equipment, LogType, Rating } from '../db/types'
 
 /** その種目の過去1回分の記録 */
 export interface PastSession {
@@ -24,8 +24,15 @@ export interface LoadDecision {
   reason: string
 }
 
-/** 記録もプロフィールの重量もないときの初期値（設計書「5. 重さの決め方」3） */
+/** 記録もプロフィールの重量もないときの初期値（設計書「5. 重さの決め方」3）：複数関節 */
 export const DEFAULT_WEIGHT = 20
+/** 同じく、単関節やダンベルの種目 */
+export const DEFAULT_LIGHT_WEIGHT = 5
+
+/** 初期値：複数関節（ダンベル以外）は20kg、単関節やダンベルの種目は5kg */
+export function defaultWeightFor(ex: { compound?: boolean; equipment: Equipment }): number {
+  return ex.compound && ex.equipment !== 'dumbbell' ? DEFAULT_WEIGHT : DEFAULT_LIGHT_WEIGHT
+}
 
 /** 推定1RM（Epley式：重量×(1＋回数÷30)） */
 export function estimate1RM(weight: number, reps: number): number {
@@ -74,7 +81,7 @@ const isEasy = (s?: PastSession) => s?.effort !== undefined && s.effort <= 2
  *
  * 記録がないとき（設計書「5. 重さの決め方」）：
  * - プロフィールの「重量×回数」があれば 推定1RM × 目標回数（幅の下限）の割合 を刻み幅で丸める
- * - なければ 20kg で軽めに試す
+ * - なければ初期値（defaultWeight。既定は20kg）で軽めに試す
  *
  * 記録があるとき（設計書「6. きつさによる調整」の表。直近2回の流れで、上から順に判断）：
  * 1. 同じ重さで3回続けて届かなかった → 10%下げる、1セット減らす
@@ -94,8 +101,10 @@ export function decideLoad(args: {
   step: number
   baseline?: { weight: number; reps: number }
   logType: LogType
+  /** 記録も重量×回数もないときの重さ（defaultWeightFor）。既定は20kg */
+  defaultWeight?: number
 }): LoadDecision {
-  const { repRange, step, baseline, logType } = args
+  const { repRange, step, baseline, logType, defaultWeight = DEFAULT_WEIGHT } = args
   const [low, high] = repRange
   const history = [...args.history].sort((a, b) => b.date.localeCompare(a.date))
   const [last, prev, prev2] = history
@@ -107,8 +116,8 @@ export function decideLoad(args: {
       return { weight, reps: low, setDelta: 0, reason: `今の重量（${baseline.weight}kg×${baseline.reps}回）から、${low}回できる重さを計算しました。` }
     }
     return {
-      weight: DEFAULT_WEIGHT, reps: low, setDelta: 0,
-      reason: `記録がないので、最初は軽めの重さ（${DEFAULT_WEIGHT}kg）で試して、きつさを記録してください。`,
+      weight: defaultWeight, reps: low, setDelta: 0,
+      reason: `記録がないので、最初は軽めの重さ（${defaultWeight}kg）で試して、きつさを記録してください。`,
     }
   }
 

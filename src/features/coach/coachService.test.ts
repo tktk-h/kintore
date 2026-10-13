@@ -69,8 +69,12 @@ describe('askCoach', () => {
     const bench = m.proposal!.days[0].exercises[0]
     // プロフィールの 100kg×5 → 推定1RM 116.7 × 6回の割合 0.85 → 99.2 → 100
     expect(bench).toMatchObject({ exerciseId: 'ex-bench-press', repRange: [6, 10], reps: 6, weight: 100 })
-    // 記録もプロフィールの重量もない種目は 20kg で軽めに試す
+    // 記録もプロフィールの重量もない種目は軽めに試す：複数関節は 20kg、単関節・ダンベルは 5kg
     expect(m.proposal!.days[0].exercises[1]).toMatchObject({ exerciseId: 'ex-seated-cable-row', weight: 20 })
+    const upper = m.proposal!.days[0].exercises
+    expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 5 })
+    expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 5 })
+    expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 5 })
     expect(m.text).toContain('軽め')
     expect(m.proposal!.muscleSets.chest).toBeGreaterThan(0)
 

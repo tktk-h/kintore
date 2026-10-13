@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Rating } from '../db/types'
-import { decideLoad, estimate1RM, percentForReps, roundToStep, type PastSession } from './load'
+import { decideLoad, defaultWeightFor, estimate1RM, percentForReps, roundToStep, type PastSession } from './load'
 
 const range: [number, number] = [8, 12]
 const step = 2.5
@@ -148,5 +148,21 @@ describe('decideLoad：時間の種目', () => {
     expect(timed(hist([0, [0], 5], [0, [0], 5])).setDelta).toBe(-1)
     expect(timed(hist([0, [0], 2], [0, [0], 1], [0, [0], 2])).setDelta).toBe(1)
     expect(timed(hist([0, [0], 2], [0, [0], 1])).setDelta).toBe(0)
+  })
+})
+
+describe('defaultWeightFor（記録も重量×回数もないときの初期値）', () => {
+  it('複数関節は20kg、単関節やダンベルは5kg', () => {
+    expect(defaultWeightFor({ compound: true, equipment: 'barbell' })).toBe(20)
+    expect(defaultWeightFor({ compound: true, equipment: 'machine' })).toBe(20)
+    expect(defaultWeightFor({ compound: false, equipment: 'machine' })).toBe(5)
+    expect(defaultWeightFor({ compound: true, equipment: 'dumbbell' })).toBe(5)
+    expect(defaultWeightFor({ equipment: 'cable' })).toBe(5)
+  })
+
+  it('decideLoad に初期値を渡すとその重さで始める', () => {
+    const d = decideLoad({ history: [], repRange: range, step, logType: 'weight_reps', defaultWeight: 5 })
+    expect(d).toMatchObject({ weight: 5, reps: 8, setDelta: 0 })
+    expect(d.reason).toContain('5kg')
   })
 })
