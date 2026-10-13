@@ -45,12 +45,14 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     expect(check(valid())).toEqual([])
   })
 
-  it('候補にない種目ID', () => {
+  it('候補にない種目ID（IDは見せずに「◯日の◯つ目の種目」で示す）', () => {
     const p = valid()
     p.days[0].exercises[6].exerciseId = 'ex-nope' // 二頭の枠（抜けても週のセット数は足りる）
     const issues = check(p)
     expect(issues).toHaveLength(1)
     expect(issues[0]).toContain('候補にない')
+    expect(issues[0]).toContain('10月12日(月)の7つ目の種目')
+    expect(issues[0]).not.toContain('ex-nope')
   })
 
   it('削除された種目も候補にない', () => {
@@ -69,6 +71,8 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     expect(issues).toHaveLength(1)
     expect(issues[0]).toContain('合いません')
     expect(issues[0]).toContain('リアレイズ')
+    expect(issues[0]).toContain('横肩')
+    expect(issues[0]).not.toContain('upper.6')
   })
 
   it('骨組みにない枠', () => {
@@ -76,7 +80,9 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     p.days[0].exercises[0].slot = 'push.9'
     const issues = check(p)
     expect(issues).toHaveLength(1)
-    expect(issues[0]).toContain('push.9')
+    expect(issues[0]).toContain('骨組みにありません')
+    expect(issues[0]).toContain('ベンチプレス')
+    expect(issues[0]).not.toContain('push.9')
   })
 
   it('セット数は1〜10', () => {
@@ -111,24 +117,21 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     const p = valid()
     p.days[3].date = '2026-10-19' // 次の週の月曜
     const issues = check(p)
-    expect(issues).toHaveLength(1)
-    expect(issues[0]).toContain('対象の週')
+    expect(issues.filter((i) => i.includes('対象の週'))).toHaveLength(1)
   })
 
   it('行けない曜日', () => {
     const p = valid()
     p.days[3].date = '2026-10-17' // 土曜
     const issues = check(p)
-    expect(issues).toHaveLength(1)
-    expect(issues[0]).toContain('行ける曜日')
+    expect(issues.filter((i) => i.includes('行ける曜日'))).toHaveLength(1)
   })
 
   it('同じ部位の日の間が48時間未満', () => {
     const p = valid()
     p.days[3].date = '2026-10-14' // 下半身を火・水に連続させる
     const issues = check(p, skeleton, profile({ weekdays: [1, 2, 3, 4, 5] }))
-    expect(issues).toHaveLength(1)
-    expect(issues[0]).toContain('48時間')
+    expect(issues.filter((i) => i.includes('48時間'))).toHaveLength(1)
   })
 
   it('1日の合計時間が1回の時間を超える', () => {
@@ -167,6 +170,29 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     p.days[1].exercises.push({ slot: 'lower.6', exerciseId: 'ex-running', sets: 1, reps: 1, repRange: [1, 1], restSec: 0 })
     const issues = check(p, skeleton, profile({ minutesPerSession: 300 }))
     expect(issues.some((i) => i.includes('多すぎ') || i.includes('少な'))).toBe(false)
+  })
+
+  it('同じ日付が2回ある', () => {
+    const p = valid()
+    p.days.push({ ...p.days[3], exercises: [p.days[3].exercises[4]] }) // 金曜をもう1つ（ふくらはぎだけ）
+    const issues = check(p, skeleton, profile({ minutesPerSession: 300 }))
+    expect(issues.filter((i) => i.includes('2回'))).toHaveLength(1)
+    expect(issues.join()).toContain('10月16日(金)')
+  })
+
+  it('骨組みにない日付（行ける曜日でも）', () => {
+    const p = valid()
+    const pr = profile({ weekdays: [1, 2, 3, 4, 5] })
+    p.days.push({ date: '2026-10-14', title: '追加', exercises: [p.days[0].exercises[6]] })
+    const issues = check(p, skeleton, pr)
+    expect(issues.filter((i) => i.includes('骨組みの日ではありません'))).toHaveLength(1)
+  })
+
+  it('骨組みの日が抜けている', () => {
+    const p = valid()
+    p.days = p.days.filter((d) => d.date !== '2026-10-16')
+    const issues = check(p)
+    expect(issues.filter((i) => i.includes('10月16日(金)') && i.includes('抜けて'))).toHaveLength(1)
   })
 
   it('軽めの週は下限のチェックをしない', () => {

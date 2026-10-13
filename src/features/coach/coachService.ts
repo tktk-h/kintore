@@ -66,7 +66,10 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
   return { proposal: { ...p, days }, notes: notes.size ? ['最初は軽めの重さで試して、きつさを記録してください。'] : [] }
 }
 
-/** validateProposal に加えて、今日より前の日付と、骨組みにない日付を確かめる */
+/**
+ * validateProposal（種目・枠・値の範囲・日付の重複／骨組みの日かどうか・48時間・時間・週のセット数）に加えて、
+ * 今週の見直しでは今日より前の日付になっていないかを確かめる
+ */
 function check(p: Proposal, skeleton: Skeleton, inputs: CoachInputs, profile: Profile, earliest?: string): string[] {
   const issues = validateProposal(p, skeleton, inputs.catalog, profile)
   if (earliest) {
