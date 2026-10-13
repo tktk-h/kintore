@@ -46,7 +46,7 @@ describe('seedExercises', () => {
       // 全身
       ['squat'], ['horizontal_push'], ['horizontal_pull'], ['hinge'], ['vertical_push', 'vertical_pull'], ['biceps', 'triceps', 'core'],
       // 上半身
-      ['horizontal_push'], ['horizontal_pull'], ['vertical_push'], ['vertical_pull'], ['side_delt'], ['biceps'], ['triceps'],
+      ['horizontal_push'], ['horizontal_pull'], ['vertical_push'], ['vertical_pull'], ['chest_isolation'], ['side_delt'], ['biceps'], ['triceps'],
       // 下半身・脚
       ['squat'], ['hinge'], ['single_leg', 'quad_isolation'], ['hamstring'], ['calf'], ['core'],
       // プッシュ

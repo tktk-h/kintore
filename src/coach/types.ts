@@ -22,4 +22,12 @@ export interface Skeleton {
 }
 export interface ProposalExercise { slot: string; exerciseId: string; sets: number; reps: number; repRange: [number, number]; restSec: number; weight?: number }
 export interface ProposalDay { date: string; title: string; exercises: ProposalExercise[]; note?: string }
-export interface Proposal { split: SplitType; days: ProposalDay[]; reasons: string; issues: string[]; muscleSets: Partial<Record<Muscle, number>> }
+export interface Proposal {
+  split: SplitType
+  days: ProposalDay[]
+  reasons: string
+  issues: string[]
+  muscleSets: Partial<Record<Muscle, number>>
+  /** 軽めの週（骨組みから）。反映するとき予定に印をつける */
+  deload?: boolean
+}

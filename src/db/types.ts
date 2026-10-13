@@ -89,6 +89,8 @@ export interface PlannedWorkout extends BaseRecord {
   exercises: PlannedExercise[]
   source: PlanSource
   routineId?: string
+  /** AIコーチの軽めの週（デロード）の予定 */
+  deload?: boolean
 }
 
 export interface Workout extends BaseRecord {
