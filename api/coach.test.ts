@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { GET, MESSAGES, POST } from './coach.js'
+import { config, GET, MESSAGES, POST } from './coach.js'
 import { MAX_REQUEST_BYTES, PASSCODE_HEADER, type CoachRequest } from './_lib/schema.js'
 import { sendToCoach } from '../src/features/coach/client'
 
@@ -163,6 +163,27 @@ describe('POST /api/coach', () => {
     expect(sent.generationConfig).toMatchObject({ responseMimeType: 'application/json', temperature: 0.4 })
     expect(sent.generationConfig.responseSchema.required).toEqual(['message'])
     expect(JSON.stringify(sent)).not.toContain(PASSCODE)
+  })
+
+  it('考える量を抑えて速く返す（thinkingBudget 1024、GEMINI_THINKING_BUDGET で変えられる）', async () => {
+    await POST(req())
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).generationConfig.thinkingConfig).toEqual({ thinkingBudget: 1024 })
+    env.GEMINI_THINKING_BUDGET = 'off'
+    await POST(req())
+    expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).generationConfig.thinkingConfig).toBeUndefined()
+    delete env.GEMINI_THINKING_BUDGET
+  })
+
+  it('モデルが thinkingConfig に対応せず 400 なら、外して1回だけ送り直す', async () => {
+    fetchMock.mockResolvedValueOnce(gemini(400, { error: { message: 'thinking is not supported' } }))
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).generationConfig.thinkingConfig).toBeUndefined()
+  })
+
+  it('関数の実行時間の上限は60秒', () => {
+    expect(config).toEqual({ maxDuration: 60 })
   })
 
   it('モデルの既定は gemini-2.5-flash', async () => {

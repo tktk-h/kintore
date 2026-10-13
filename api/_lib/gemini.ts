@@ -19,29 +19,47 @@ export interface CallGeminiArgs {
   system: string
   context: string
   messages: CoachChatTurn[]
+  /**
+   * 考える量（トークン）。返事を速くするため既定は少なめ。undefined なら送らない（モデルの既定）。
+   * 対応していないモデルで 400 になったときは、外して1回だけ送り直す。
+   */
+  thinkingBudget?: number
 }
+
+/** 既定の考える量。メニューは骨組みが決まっているので多くは要らない */
+export const DEFAULT_THINKING_BUDGET = 1024
 
 interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[]
 }
 
-export async function callGemini({ apiKey, model, system, context, messages }: CallGeminiArgs): Promise<CoachReply> {
+export async function callGemini({ apiKey, model, system, context, messages, thinkingBudget }: CallGeminiArgs): Promise<CoachReply> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`
-  const body = {
+  const makeBody = (withThinking: boolean) => ({
     systemInstruction: { parts: [{ text: system }, { text: `参考情報（JSON）：\n${context}` }] },
     contents: messages.map((m) => ({ role: m.role === 'coach' ? 'model' : 'user', parts: [{ text: m.text }] })),
-    generationConfig: { responseMimeType: 'application/json', responseSchema: COACH_REPLY_SCHEMA, temperature: 0.4 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: COACH_REPLY_SCHEMA,
+      temperature: 0.4,
+      ...(withThinking ? { thinkingConfig: { thinkingBudget } } : {}),
+    },
+  })
+  const post = async (withThinking: boolean): Promise<Response> => {
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(makeBody(withThinking)),
+      })
+    } catch {
+      throw new GeminiError('upstream')
+    }
   }
-  let res: Response
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body),
-    })
-  } catch {
-    throw new GeminiError('upstream')
-  }
+  const withThinking = thinkingBudget !== undefined
+  let res = await post(withThinking)
+  // thinkingConfig に対応していないモデルなら、外して1回だけ送り直す
+  if (res.status === 400 && withThinking) res = await post(false)
   if (res.status === 429) throw new GeminiError('rate_limited', 429)
   if (!res.ok) throw new GeminiError('upstream', res.status)
 

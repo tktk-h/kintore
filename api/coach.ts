@@ -3,11 +3,23 @@
  * 合言葉を照合し、本文の大きさを確かめてから Gemini を中継する。
  * APIキーと合言葉は、レスポンスにもログにも出さない。
  */
-import { callGemini, DEFAULT_GEMINI_MODEL, GeminiError } from './_lib/gemini.js'
+import { callGemini, DEFAULT_GEMINI_MODEL, DEFAULT_THINKING_BUDGET, GeminiError } from './_lib/gemini.js'
 import { MAX_REQUEST_BYTES, parseCoachRequest, PASSCODE_HEADER } from './_lib/schema.js'
 
 // @types/node を入れていないので、使う分だけ型を書く
 declare const process: { env: Record<string, string | undefined> }
+
+/** Vercel 関数の設定：AIの返事を待つので実行時間の上限を60秒にする */
+export const config = { maxDuration: 60 }
+
+/** GEMINI_THINKING_BUDGET：数（0以上）ならその値、'off' なら送らない、なければ既定 */
+function thinkingBudget(): number | undefined {
+  const raw = process.env.GEMINI_THINKING_BUDGET?.trim()
+  if (!raw) return DEFAULT_THINKING_BUDGET
+  if (raw === 'off') return undefined
+  const n = Number(raw)
+  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_THINKING_BUDGET
+}
 
 export const MESSAGES = {
   method: 'POST で送ってください',
@@ -73,7 +85,9 @@ export async function handleCoach(request: Request): Promise<Response> {
   if (!req) return error(400, MESSAGES.badRequest)
 
   try {
-    const reply = await callGemini({ apiKey, model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, ...req })
+    const reply = await callGemini({
+      apiKey, model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), ...req,
+    })
     return Response.json(reply)
   } catch (e) {
     if (e instanceof GeminiError) {
