@@ -8,8 +8,8 @@ import { useSafeAction, useToast } from '../../components/Toast'
 import { SPLIT_LABELS } from '../../coach/split'
 import type { ProposalExercise } from '../../coach/types'
 import { MUSCLE_LABELS, MUSCLES, type ChatMessage, type Exercise, type PlannedWorkout } from '../../db/types'
-import { formatDateJa } from '../../lib/dates'
-import { applyProposal } from '../../repo/applyProposal'
+import { formatDateJa, todayKey } from '../../lib/dates'
+import { ALL_PAST_MESSAGE, applicableDays, applyProposal } from '../../repo/applyProposal'
 import { listExercises } from '../../repo/exercises'
 import { getPlanForDate } from '../../repo/plans'
 
@@ -40,18 +40,23 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
   const [busy, setBusy] = useState(false)
   const applied = message.appliedAt !== undefined
   const splitLabel = SPLIT_LABELS[proposal.split]
+  // 過ぎた日は反映しない（すべて過ぎた日なら反映できない）
+  const today = todayKey()
+  const days = applicableDays(proposal.days, today)
+  const pastDates = [...new Set(proposal.days.filter((d) => d.date < today).map((d) => d.date))].sort()
+  const allPast = days.length === 0
 
   const apply = async () => {
     setReplacing(undefined)
     setBusy(true)
-    const ok = await run(() => applyProposal(message.id), '反映できませんでした')
+    const ok = await run(() => applyProposal(message.id, today), '反映できませんでした')
     setBusy(false)
-    if (ok) toast('予定に反映しました')
+    if (ok) toast(pastDates.length > 0 ? '今日以降の日だけ予定に反映しました' : '予定に反映しました')
   }
 
   const onApply = async () => {
     setBusy(true)
-    const existing = (await Promise.all(proposal.days.map((d) => getPlanForDate(d.date)))).filter((p): p is PlannedWorkout => p !== undefined)
+    const existing = (await Promise.all(days.map((d) => getPlanForDate(d.date)))).filter((p): p is PlannedWorkout => p !== undefined)
     setBusy(false)
     if (existing.length > 0) setReplacing(existing)
     else await apply()
@@ -140,10 +145,21 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
           </Link>
         </div>
       ) : (
-        <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void onApply()}>
-          <CalendarCheck aria-hidden="true" />
-          反映する
-        </button>
+        <>
+          {allPast ? (
+            <p className="muted">{ALL_PAST_MESSAGE}</p>
+          ) : (
+            pastDates.length > 0 && (
+              <p className="muted">
+                過ぎた日（{pastDates.map(formatDateJa).join('・')}）は反映しません。今日以降の日だけ反映します。
+              </p>
+            )
+          )}
+          <button type="button" className="btn btn-primary btn-block" disabled={busy || allPast} onClick={() => void onApply()}>
+            <CalendarCheck aria-hidden="true" />
+            反映する
+          </button>
+        </>
       )}
       {replacing && (
         <Dialog title="予定を置き換えますか？" onClose={() => setReplacing(undefined)}>

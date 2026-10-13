@@ -6,7 +6,8 @@ import { buildSkeleton } from '../../coach/skeleton'
 import type { Skeleton } from '../../coach/types'
 import type { MovementPattern, Profile } from '../../db/types'
 import { addDays, formatDateJa, mondayOf, todayKey } from '../../lib/dates'
-import { listChatMessages } from '../../repo/chat'
+import type { Proposal } from '../../coach/types'
+import { addChatMessage, listChatMessages } from '../../repo/chat'
 import { getPlanForDate } from '../../repo/plans'
 import { saveProfile } from '../../repo/profile'
 import { createRoutine } from '../../repo/routines'
@@ -118,6 +119,39 @@ describe('CoachPage', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '置き換えて反映する' }))
     await waitFor(async () => expect((await getPlanForDate(first.date))?.source).toBe('ai'))
     expect(await within(card).findByText('反映済み')).toBeInTheDocument()
+  })
+
+  it('すべて過ぎた日の案は「反映する」を押せず、理由を出す', async () => {
+    await ready()
+    const past = addDays(todayKey(), -2)
+    const proposal: Proposal = {
+      split: 'upper_lower', reasons: '', issues: [], muscleSets: {},
+      days: [{ date: past, title: '上半身', exercises: [{ slot: 'upper.1', exerciseId: 'ex-bench-press', sets: 3, reps: 8, repRange: [6, 10], restSec: 150 }] }],
+    }
+    await addChatMessage({ role: 'coach', text: '古い案', proposal })
+    open(vi.fn())
+    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    expect(within(card).getByRole('button', { name: '反映する' })).toBeDisabled()
+    expect(within(card).getByText(/すべて過ぎた日/)).toBeInTheDocument()
+  })
+
+  it('一部が過ぎた日の案は、今日以降の日だけ反映すると知らせる', async () => {
+    await ready()
+    const today = todayKey()
+    const ex = { slot: 'upper.1', exerciseId: 'ex-bench-press', sets: 3, reps: 8, repRange: [6, 10] as [number, number], restSec: 150 }
+    const proposal: Proposal = {
+      split: 'upper_lower', reasons: '', issues: [], muscleSets: {},
+      days: [{ date: addDays(today, -1), title: '上半身', exercises: [ex] }, { date: today, title: '上半身', exercises: [ex] }],
+    }
+    await addChatMessage({ role: 'coach', text: '案', proposal })
+    open(vi.fn())
+    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    const pastLabel = formatDateJa(addDays(today, -1))
+    expect(within(card).getByText((t) => t.includes(pastLabel) && t.includes('反映しません'))).toBeInTheDocument()
+    await userEvent.click(within(card).getByRole('button', { name: '反映する' }))
+    expect(await within(card).findByText('反映済み')).toBeInTheDocument()
+    expect(await getPlanForDate(addDays(today, -1))).toBeUndefined()
+    expect((await getPlanForDate(today))?.source).toBe('ai')
   })
 
   it('失敗したら理由を出し、「もう一度送る」で送り直せる', async () => {
