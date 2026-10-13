@@ -17,6 +17,8 @@ export interface Skeleton {
   days: DayPlan[]
   weeklySetTarget: [number, number]   // 部位ごとの週のセット数の目標
   deload: boolean
+  /** 日数を減らした・分割法を変えたなどの理由（チャットやAIに伝える） */
+  notes: string[]
 }
 export interface ProposalExercise { slot: string; exerciseId: string; sets: number; reps: number; repRange: [number, number]; restSec: number; weight?: number }
 export interface ProposalDay { date: string; title: string; exercises: ProposalExercise[]; note?: string }

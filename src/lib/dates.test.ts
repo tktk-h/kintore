@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDateJa, formatDuration, monthGrid, monthRange, parseDateKey, toDateKey } from './dates'
+import { addDays, daysBetween, formatDateJa, formatDuration, mondayOf, monthGrid, monthRange, parseDateKey, toDateKey } from './dates'
 
 describe('dates', () => {
   it('toDateKey はローカル日付を YYYY-MM-DD にする', () => {
@@ -28,5 +28,24 @@ describe('dates', () => {
   it('formatDuration は分・時間で表示する', () => {
     expect(formatDuration(42 * 60000)).toBe('42分')
     expect(formatDuration(95 * 60000)).toBe('1時間35分')
+  })
+})
+
+describe('dates（週の計算）', () => {
+  it('addDays は月・年をまたいで日を足す', () => {
+    expect(addDays('2026-10-30', 3)).toBe('2026-11-02')
+    expect(addDays('2027-01-01', -1)).toBe('2026-12-31')
+  })
+
+  it('daysBetween は日数の差', () => {
+    expect(daysBetween('2026-10-12', '2026-10-14')).toBe(2)
+    expect(daysBetween('2026-10-14', '2026-10-12')).toBe(-2)
+    expect(daysBetween('2026-03-28', '2026-03-30')).toBe(2)
+  })
+
+  it('mondayOf はその週の月曜（日曜は前の週）', () => {
+    expect(mondayOf('2026-10-12')).toBe('2026-10-12')
+    expect(mondayOf('2026-10-15')).toBe('2026-10-12')
+    expect(mondayOf('2026-10-18')).toBe('2026-10-12')
   })
 })
