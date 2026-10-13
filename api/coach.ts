@@ -3,9 +3,8 @@
  * 合言葉を照合し、本文の大きさを確かめてから Gemini を中継する。
  * APIキーと合言葉は、レスポンスにもログにも出さない。
  */
-import { timingSafeEqual } from 'node:crypto'
-import { callGemini, DEFAULT_GEMINI_MODEL, GeminiError } from './_lib/gemini'
-import { MAX_REQUEST_BYTES, parseCoachRequest, PASSCODE_HEADER } from './_lib/schema'
+import { callGemini, DEFAULT_GEMINI_MODEL, GeminiError } from './_lib/gemini.js'
+import { MAX_REQUEST_BYTES, parseCoachRequest, PASSCODE_HEADER } from './_lib/schema.js'
 
 // @types/node を入れていないので、使う分だけ型を書く
 declare const process: { env: Record<string, string | undefined> }
@@ -31,7 +30,10 @@ async function sha256(text: string): Promise<Uint8Array> {
 /** 一定時間で比べる（長さの違いも漏らさないよう、ハッシュにしてから比べる） */
 async function samePasscode(given: string, expected: string): Promise<boolean> {
   const [a, b] = await Promise.all([sha256(given), sha256(expected)])
-  return timingSafeEqual(a, b)
+  // どちらも 32 バイト。途中で抜けずに全バイトの差を集める
+  let diff = a.length ^ b.length
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ (b[i] ?? 0)
+  return diff === 0
 }
 
 export async function handleCoach(request: Request): Promise<Response> {

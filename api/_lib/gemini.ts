@@ -1,7 +1,7 @@
 /**
  * Gemini の呼び出し。別のAIに乗り換えるときはこのファイルだけ替える。
  */
-import { COACH_REPLY_SCHEMA, parseCoachReply, type CoachChatTurn, type CoachReply } from './schema'
+import { COACH_REPLY_SCHEMA, parseCoachReply, type CoachChatTurn, type CoachReply } from './schema.js'
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
 

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { GET, MESSAGES, POST } from './coach'
-import { MAX_REQUEST_BYTES, PASSCODE_HEADER, type CoachRequest } from './_lib/schema'
+import { GET, MESSAGES, POST } from './coach.js'
+import { MAX_REQUEST_BYTES, PASSCODE_HEADER, type CoachRequest } from './_lib/schema.js'
 
 const API_KEY = 'test-api-key-SECRET123'
 const PASSCODE = 'pass-SECRET456'
