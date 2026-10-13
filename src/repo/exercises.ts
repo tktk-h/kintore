@@ -2,7 +2,8 @@ import { db } from '../db/db'
 import { BODY_PARTS, type BodyPart, type Exercise } from '../db/types'
 import { alive, newRecord } from '../lib/records'
 
-export type ExerciseInput = Pick<Exercise, 'name' | 'bodyPart' | 'equipment' | 'logType' | 'defaultRestSec'>
+export type ExerciseInput = Pick<Exercise, 'name' | 'bodyPart' | 'equipment' | 'logType' | 'defaultRestSec'> &
+  Partial<Pick<Exercise, 'pattern' | 'primary' | 'secondary' | 'compound'>>
 
 function compareExercises(a: Exercise, b: Exercise): number {
   const byPart = BODY_PARTS.indexOf(a.bodyPart) - BODY_PARTS.indexOf(b.bodyPart)

@@ -8,6 +8,29 @@ export type Equipment = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweig
 export type LogType = 'weight_reps' | 'reps' | 'time_distance'
 export type Rating = 1 | 2 | 3 | 4 | 5
 
+export type MovementPattern =
+  | 'squat' | 'hinge' | 'single_leg' | 'horizontal_push' | 'vertical_push'
+  | 'horizontal_pull' | 'vertical_pull' | 'chest_isolation' | 'side_delt'
+  | 'rear_delt' | 'biceps' | 'triceps' | 'hamstring' | 'quad_isolation'
+  | 'calf' | 'core' | 'cardio'
+
+export type Muscle =
+  | 'chest' | 'back' | 'front_delt' | 'side_delt' | 'rear_delt' | 'biceps'
+  | 'triceps' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'abs'
+
+export const MOVEMENT_PATTERN_LABELS: Record<MovementPattern, string> = {
+  squat: 'スクワット系', hinge: 'ヒンジ系', single_leg: '片脚', horizontal_push: '水平に押す',
+  vertical_push: '上に押す', horizontal_pull: '水平に引く', vertical_pull: '上から引く',
+  chest_isolation: '胸の単関節', side_delt: '横肩', rear_delt: '後ろ肩', biceps: '二頭',
+  triceps: '三頭', hamstring: '裏もも', quad_isolation: '前もも', calf: 'ふくらはぎ', core: '腹', cardio: '有酸素',
+}
+export const MUSCLE_LABELS: Record<Muscle, string> = {
+  chest: '胸', back: '背中', front_delt: '前肩', side_delt: '横肩', rear_delt: '後ろ肩', biceps: '二頭',
+  triceps: '三頭', quads: '前もも', hamstrings: '裏もも', glutes: 'お尻', calves: 'ふくらはぎ', abs: '腹',
+}
+export const MOVEMENT_PATTERNS = Object.keys(MOVEMENT_PATTERN_LABELS) as MovementPattern[]
+export const MUSCLES = Object.keys(MUSCLE_LABELS) as Muscle[]
+
 /** 同期できるように、すべての記録が持つ項目 */
 export interface BaseRecord {
   id: string
@@ -23,6 +46,14 @@ export interface Exercise extends BaseRecord {
   logType: LogType
   defaultRestSec: number
   custom: boolean
+  /** 動きの種類（既存データと自作種目のために任意） */
+  pattern?: MovementPattern
+  /** 主に使う部位 */
+  primary?: Muscle[]
+  /** 補助で使う部位 */
+  secondary?: Muscle[]
+  /** 複数関節の種目か */
+  compound?: boolean
 }
 
 export interface SetValues {

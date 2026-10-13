@@ -469,3 +469,6 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .collapse-btn svg { transition: transform 0.2s var(--ease); }
 .collapse-btn[aria-expanded='true'] svg { transform: rotate(180deg); }
 .card.collapsible > .collapsible-body { margin-top: var(--s-3); }
+
+/* 折り返して並べるチップ（複数選択など） */
+.chips.chips-wrap { flex-wrap: wrap; overflow-x: visible; margin: 0; padding: 0; }
