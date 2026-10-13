@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET, MESSAGES, POST } from './coach.js'
 import { MAX_REQUEST_BYTES, PASSCODE_HEADER, type CoachRequest } from './_lib/schema.js'
+import { sendToCoach } from '../src/features/coach/client'
 
 const API_KEY = 'test-api-key-SECRET123'
 const PASSCODE = 'pass-SECRET456'
@@ -81,6 +82,25 @@ describe('POST /api/coach', () => {
       expect(await res.json()).toEqual({ error: MESSAGES.unauthorized })
     }
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('合言葉はURLエンコードされたものを戻して比べる。戻せない形なら 401', async () => {
+    env.COACH_PASSCODE = 'ひみつ 合言葉'
+    expect((await POST(req({ passcode: encodeURIComponent('ひみつ 合言葉') }))).status).toBe(200)
+    expect((await POST(req({ passcode: encodeURIComponent('ひみつ') }))).status).toBe(401)
+    expect((await POST(req({ passcode: '%E3%81' }))).status).toBe(401)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('アプリから日本語の合言葉で送ると、サーバーが受け付ける（通しで確かめる）', async () => {
+    env.COACH_PASSCODE = 'ひみつの合言葉'
+    const gem = fetchMock
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url) === '/api/coach') return POST(new Request('https://example.test/api/coach', init))
+      return (gem as unknown as typeof fetch)(url, init)
+    }))
+    expect(await sendToCoach(body, 'ひみつの合言葉')).toEqual(reply)
+    await expect(sendToCoach(body, 'ちがう')).rejects.toMatchObject({ kind: 'unauthorized' })
   })
 
   it('GEMINI_API_KEY がないと 500「サーバーの設定が足りません」', async () => {

@@ -36,6 +36,16 @@ async function samePasscode(given: string, expected: string): Promise<boolean> {
   return diff === 0
 }
 
+/** URLエンコードされた合言葉を戻す。ない・戻せない形なら空 */
+function decodePasscode(header: string | null): string {
+  if (!header) return ''
+  try {
+    return decodeURIComponent(header)
+  } catch {
+    return ''
+  }
+}
+
 export async function handleCoach(request: Request): Promise<Response> {
   if (request.method !== 'POST') return error(405, MESSAGES.method, { allow: 'POST' })
 
@@ -46,7 +56,8 @@ export async function handleCoach(request: Request): Promise<Response> {
 
   const expected = process.env.COACH_PASSCODE
   if (!expected) return error(500, MESSAGES.config)
-  const given = request.headers.get(PASSCODE_HEADER) ?? ''
+  // ヘッダーには Latin-1 しか入らないので、アプリは合言葉を encodeURIComponent して送る
+  const given = decodePasscode(request.headers.get(PASSCODE_HEADER))
   if (!given || !(await samePasscode(given, expected))) return error(401, MESSAGES.unauthorized)
 
   const apiKey = process.env.GEMINI_API_KEY

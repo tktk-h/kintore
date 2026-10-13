@@ -18,6 +18,9 @@ export class CoachError extends Error {
   }
 }
 
+/** オンラインなのに送れなかったとき（サーバーに届かない・送る内容を送れないなど） */
+export const COACH_SEND_FAILED_MESSAGE = 'サーバーに送れませんでした。時間をおいてもう一度送ってください。続くときは設定の合言葉も確かめてください。'
+
 export const COACH_ENDPOINT = '/api/coach'
 
 export type SendToCoach = (body: CoachRequest, passcode: string) => Promise<CoachReply>
@@ -30,11 +33,14 @@ export const sendToCoach: SendToCoach = async (body, passcode) => {
   try {
     res = await fetch(COACH_ENDPOINT, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', [PASSCODE_HEADER]: passcode },
+      // ヘッダーには Latin-1 しか入らないので、日本語の合言葉も送れるように URL エンコードする
+      headers: { 'content-type': 'application/json', [PASSCODE_HEADER]: encodeURIComponent(passcode) },
       body: JSON.stringify(body),
     })
   } catch {
-    throw new CoachError('offline')
+    // 送っている間に電波が切れたときだけオフライン扱い。オンラインなのに失敗したのは別の理由として出す
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new CoachError('offline')
+    throw new CoachError('server', COACH_SEND_FAILED_MESSAGE)
   }
   if (res.status === 401) throw new CoachError('unauthorized')
   if (res.status === 429) throw new CoachError('rate_limited')

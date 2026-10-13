@@ -51,6 +51,7 @@ export interface CoachRequest {
   messages: CoachChatTurn[]
 }
 
+/** 合言葉のヘッダー。値は encodeURIComponent したもの（日本語でも送れるように） */
 export const PASSCODE_HEADER = 'x-coach-passcode'
 /** 1回のリクエストの上限（バイト） */
 export const MAX_REQUEST_BYTES = 100 * 1024
