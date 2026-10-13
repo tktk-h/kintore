@@ -9,5 +9,5 @@ configure({ asyncUtilTimeout: 5000 })
 
 afterEach(() => {
   cleanup()
-  localStorage.clear()
+  if (typeof localStorage !== 'undefined') localStorage.clear() // node 環境のテスト（api/）にはない
 })

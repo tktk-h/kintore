@@ -1,0 +1,3 @@
+# api/ のファイルはそのまま Vercel の関数になるので、テストはアップロードしない
+api/**/*.test.ts
+api/*.test.ts
