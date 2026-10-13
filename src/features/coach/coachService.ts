@@ -9,6 +9,8 @@ import { validateProposal } from '../../coach/validate'
 import type { ChatMessage, Exercise, Profile } from '../../db/types'
 import { addDays, formatDateJa, mondayOf, todayKey } from '../../lib/dates'
 import { addChatMessage } from '../../repo/chat'
+import { saveProfile } from '../../repo/profile'
+import { SPLIT_LABELS } from '../../coach/split'
 import { loadCoachInputs, type CoachInputs } from '../../repo/coachData'
 import { sendToCoach as defaultSend, type SendToCoach } from './client'
 
@@ -120,12 +122,14 @@ interface Finalized { proposal: Proposal; issues: string[]; notes: string[] }
 /**
  * 普通のチャットの案は、日付が今週なら今週（今日以降）の骨組みで、そうでなければ来週の骨組みでチェックする
  */
-function finalize(reply: CoachReply, ctx: {
+interface FinalizeContext {
   inputs: CoachInputs; profile: Profile; skeleton: Skeleton; intent: CoachIntent; today: string
   /** 今週の見直しで組み始める日 */
   from: string
   thisWeek?: { inputs: CoachInputs; skeleton: Skeleton }
-}): Finalized | undefined {
+}
+
+function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefined {
   if (!reply.proposal) return undefined
   const thisMonday = mondayOf(ctx.today)
   const forThisWeek = ctx.intent === 'this_week'
@@ -142,6 +146,7 @@ function finalize(reply: CoachReply, ctx: {
  * 1. 記録を集めて骨組みを作り、AIに渡す情報を組み立てて送る
  * 2. 返事にメニュー案があれば、重さと回数を計算してチェックする
  * 3. 問題があれば、問題の文をつけて1回だけ作り直してもらう。まだ問題があれば issues に入れる
+ * 3'. 分割法の変更を頼まれたら（requestedSplit）、プロフィールに保存し、組み直した骨組みでもう一度案を頼む
  * 4. ユーザーのメッセージとAIの返事（メニュー案つき）を保存する
  * 送る前にユーザーのメッセージを保存するので、失敗しても消えない。同じ文で送り直したときは二重に保存しない。
  * 失敗したときは CoachError（または Error）を投げる。
@@ -169,42 +174,83 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const done = thisWeekInputs ? doneDaysOf(thisWeekInputs, thisMonday, today) : []
   const from = startDate(done, today, opts.skipToday ?? false)
   const earliest = intent === 'this_week' || intent === 'chat' ? from : undefined
-  const skeleton = skeletonFor(inputs, profile, weekStart, intent === 'this_week' ? { from, done } : undefined)
-  // 普通のチャットで今週の案が返ってきたときのために、今週（今日以降）の骨組みも用意する
-  const thisWeek = intent === 'chat' && thisWeekInputs
-    ? { inputs: thisWeekInputs, skeleton: skeletonFor(thisWeekInputs, profile, thisMonday, { from, done }) }
-    : undefined
+  const passcode = inputs.settings.coachPasscode ?? ''
 
+  /** 骨組みと、返事を確かめるための材料 */
+  const plan = (p: Profile, planIntent: CoachIntent): FinalizeContext => {
+    const skeleton = skeletonFor(inputs, p, weekStart, planIntent === 'this_week' ? { from, done } : undefined)
+    // 普通のチャットで今週の案が返ってきたときのために、今週（今日以降）の骨組みも用意する
+    const thisWeek = planIntent === 'chat' && thisWeekInputs
+      ? { inputs: thisWeekInputs, skeleton: skeletonFor(thisWeekInputs, p, thisMonday, { from, done }) }
+      : undefined
+    return { inputs, profile: p, skeleton, intent: planIntent, today, from, thisWeek }
+  }
+
+  /** 送って、案があれば確かめる。問題があれば1回だけ作り直してもらう */
+  const round = async (request: CoachRequest, ctx: FinalizeContext) => {
+    let reply = await send(request, passcode)
+    let result = finalize(reply, ctx)
+    if (result && result.issues.length > 0) {
+      const fix: CoachChatTurn[] = [
+        ...request.messages,
+        { role: 'coach', text: JSON.stringify(reply) },
+        { role: 'user', text: `メニュー案に次の問題がありました。直したメニュー案を返してください。\n${result.issues.map((s) => `- ${s}`).join('\n')}` },
+      ]
+      try {
+        const retryReply = await send({ ...request, messages: fix }, passcode)
+        const retry = finalize(retryReply, ctx)
+        if (retry && retry.issues.length <= result.issues.length) {
+          reply = retryReply
+          result = retry
+        }
+      } catch {
+        // 作り直しに失敗しても、1回目の案を注意点つきで見せる
+      }
+    }
+    return { reply, result }
+  }
+
+  const first = plan(profile, intent)
   const request: CoachRequest = buildCoachRequest({
-    profile, skeleton, catalog: inputs.catalog, history: inputs.history, existingPlans: inputs.existingPlans,
+    profile, skeleton: first.skeleton, catalog: inputs.catalog, history: inputs.history, existingPlans: inputs.existingPlans,
     previousSlots: inputs.previousSlots, chat: prior, userText: text, intent, earliestDate: earliest, today,
   })
-  const passcode = inputs.settings.coachPasscode ?? ''
-  const ctx = { inputs, profile, skeleton, intent, today, from, thisWeek }
+  const firstRound = await round(request, first)
+  let result = firstRound.result
+  const messages = [firstRound.reply.message]
 
-  let reply = await send(request, passcode)
-  let result = finalize(reply, ctx)
-
-  if (result && result.issues.length > 0) {
-    const fix: CoachChatTurn[] = [
-      ...request.messages,
-      { role: 'coach', text: JSON.stringify(reply) },
-      { role: 'user', text: `メニュー案に次の問題がありました。直したメニュー案を返してください。\n${result.issues.map((s) => `- ${s}`).join('\n')}` },
-    ]
-    try {
-      const retryReply = await send({ ...request, messages: fix }, passcode)
-      const retry = finalize(retryReply, ctx)
-      if (retry && retry.issues.length <= result.issues.length) {
-        reply = retryReply
-        result = retry
+  // 分割法の変更を頼まれた：プロフィールに保存し、組み直した骨組みでもう一度案を頼む
+  const requested = firstRound.reply.requestedSplit
+  if (requested) {
+    const updated: Profile = { ...profile, preferredSplit: requested }
+    if (profile.preferredSplit !== requested) {
+      const { id: _id, updatedAt: _u, ...rest } = updated
+      await saveProfile(rest)
+    }
+    if (requested !== first.skeleton.split) {
+      result = undefined // 古い骨組みの案は出さない
+      const againIntent: CoachIntent = intent === 'chat' ? 'next_week' : intent
+      const again = plan(updated, againIntent)
+      const request2 = buildCoachRequest({
+        profile: updated, skeleton: again.skeleton, catalog: inputs.catalog, history: inputs.history,
+        existingPlans: inputs.existingPlans, previousSlots: inputs.previousSlots,
+        chat: [...prior, { role: 'user', text }, { role: 'coach', text: firstRound.reply.message }],
+        userText: `分割法を${SPLIT_LABELS[requested]}に変えて、骨組みを組み直しました。新しい骨組みでメニュー案（proposal）を返してください。`,
+        intent: againIntent, earliestDate: againIntent === 'next_week' ? undefined : earliest, today,
+      })
+      try {
+        const second = await round(request2, again)
+        messages.push(second.reply.message)
+        result = second.result
+      } catch {
+        const ask = intent === 'this_week' ? '今週を見直して' : '来週のメニューを作って'
+        messages.push(`新しい分割法のメニュー案は、もう一度「${ask}」と頼んでください。`)
       }
-    } catch {
-      // 作り直しに失敗しても、1回目の案を注意点つきで見せる
     }
   }
 
   const extra = result?.notes ?? []
-  const message = [reply.message, ...extra].filter(Boolean).join('\n\n')
+  const message = [...messages, ...extra].filter(Boolean).join('\n\n')
   const proposal = result ? { ...result.proposal, issues: result.issues } : undefined
   return addChatMessage({ role: 'coach', text: message, ...(proposal ? { proposal } : {}) })
 }

@@ -34,6 +34,8 @@ export interface CoachReply {
   /** チャットに表示する文章 */
   message: string
   proposal?: CoachReplyProposal
+  /** 分割法の変更を頼まれたときの、新しい分割法（アプリが骨組みを組み直して、もう一度案を頼む） */
+  requestedSplit?: ReplySplit
 }
 
 export interface CoachChatTurn {
@@ -63,6 +65,11 @@ export const COACH_REPLY_SCHEMA = {
   type: 'OBJECT',
   properties: {
     message: { type: 'STRING', description: 'チャットに表示する日本語の文章' },
+    requestedSplit: {
+      type: 'STRING',
+      enum: [...SPLIT_TYPES],
+      description: '分割法の変更を頼まれたときだけ、その分割法。入れたときは proposal を入れない',
+    },
     proposal: {
       type: 'OBJECT',
       description: 'メニュー案。提案するときだけ入れる',
@@ -148,6 +155,10 @@ export function parseCoachReply(raw: unknown): CoachReply {
   if (!isObject(v) || !isStr(v.message)) fail()
   const reply: CoachReply = { message: v.message }
   if (v.proposal !== undefined && v.proposal !== null) reply.proposal = parseProposal(v.proposal)
+  // 分割法の変更の依頼は、知っている値のときだけ受け取る（違えば無視する）
+  if (isStr(v.requestedSplit) && (SPLIT_TYPES as readonly string[]).includes(v.requestedSplit)) {
+    reply.requestedSplit = v.requestedSplit as ReplySplit
+  }
   return reply
 }
 

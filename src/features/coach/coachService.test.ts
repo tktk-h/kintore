@@ -7,6 +7,7 @@ import { db } from '../../db/db'
 import type { SetRecord, Workout, WorkoutExercise } from '../../db/types'
 import { newRecord } from '../../lib/records'
 import { listChatMessages } from '../../repo/chat'
+import { getProfile } from '../../repo/profile'
 import { saveProfile } from '../../repo/profile'
 import { saveSettings } from '../../repo/settings'
 import { resetDb } from '../../test/db'
@@ -199,6 +200,34 @@ describe('askCoach', () => {
     const send = vi.fn(async () => goodReply(thisWeek))
     const m = await askCoach('今日できなかった', { intent: 'chat', today: TODAY, send })
     expect(m.proposal?.issues.join()).toContain('過ぎた日')
+  })
+
+  it('分割法の変更を頼まれたら、プロフィールに保存して新しい骨組みでもう一度案を頼む', async () => {
+    const fullBody = buildSkeleton({ profile: { ...profile, id: 'me', updatedAt: 0, preferredSplit: 'full_body' }, weekStart: NEXT, weeksSinceDeload: 0 })
+    expect(fullBody.split).toBe('full_body')
+    const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>()
+      .mockResolvedValueOnce({ message: '全身法に変えます', requestedSplit: 'full_body', proposal: goodReply().proposal })
+      .mockResolvedValueOnce({ ...goodReply(fullBody), message: '全身法のメニューです' })
+    const m = await askCoach('全身法にしたい', { intent: 'chat', today: TODAY, send })
+    expect((await getProfile())?.preferredSplit).toBe('full_body')
+    expect(send).toHaveBeenCalledTimes(2)
+    const second = JSON.parse(send.mock.calls[1][0].context)
+    expect(second.skeleton.split).toBe('full_body')
+    expect(second.request).toContain('proposal')
+    expect(m.text).toContain('全身法に変えます')
+    expect(m.text).toContain('全身法のメニューです')
+    expect(m.proposal?.split).toBe('full_body')
+    expect(m.proposal?.issues).toEqual([])
+  })
+
+  it('分割法を変えたあとの頼み直しに失敗しても、古い骨組みの案は出さない', async () => {
+    const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>()
+      .mockResolvedValueOnce({ message: '全身法に変えます', requestedSplit: 'full_body', proposal: goodReply().proposal })
+      .mockRejectedValueOnce(new CoachError('server'))
+    const m = await askCoach('全身法にしたい', { intent: 'chat', today: TODAY, send })
+    expect((await getProfile())?.preferredSplit).toBe('full_body')
+    expect(m.proposal).toBeUndefined()
+    expect(m.text).toContain('来週のメニューを作って')
   })
 
   it('プロフィールがなければ送らない', async () => {

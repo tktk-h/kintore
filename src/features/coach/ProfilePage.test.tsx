@@ -73,6 +73,39 @@ describe('ProfilePage', () => {
     expect((await getProfile())?.preferredSplit).toBe('full_body')
   })
 
+  it('分割法を選べる（自動なら希望なし）', async () => {
+    await saveProfile({
+      goal: 'hypertrophy', experience: 'y1_3', daysPerWeek: 3, minutesPerSession: 60, weekdays: [1, 3, 5],
+      equipment: ['gym_free'], injuries: '', baselines: [],
+    })
+    open()
+    expect(within(await screen.findByRole('group', { name: '分割法' })).getByRole('button', { name: '自動（おすすめ）' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(chip('分割法', 'PPL'))
+    await userEvent.click(screen.getByText('保存'))
+    await waitFor(async () => expect((await getProfile())?.preferredSplit).toBe('ppl'))
+  })
+
+  it('分割法を自動に戻すと希望を消す', async () => {
+    await saveProfile({
+      goal: 'hypertrophy', experience: 'y1_3', daysPerWeek: 3, minutesPerSession: 60, weekdays: [1, 3, 5],
+      equipment: ['gym_free'], injuries: '', baselines: [], preferredSplit: 'ppl',
+    })
+    open()
+    await userEvent.click(await screen.findByText('自動（おすすめ）'))
+    await userEvent.click(screen.getByText('保存'))
+    await waitFor(async () => expect((await getProfile())?.preferredSplit).toBeUndefined())
+  })
+
+  it('選んだ分割法が今の条件で組めないときは知らせる', async () => {
+    await saveProfile({
+      goal: 'hypertrophy', experience: 'none', daysPerWeek: 3, minutesPerSession: 60, weekdays: [1, 3, 5],
+      equipment: ['gym_free'], injuries: '', baselines: [],
+    })
+    open()
+    await userEvent.click(await screen.findByText('PPL'))
+    expect(screen.getByText(/全身法で組みます/)).toBeInTheDocument()
+  })
+
   it('戻るボタンがある', async () => {
     open()
     expect(await screen.findByRole('button', { name: '戻る' })).toBeInTheDocument()

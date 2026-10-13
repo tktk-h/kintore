@@ -162,6 +162,7 @@ describe('POST /api/coach', () => {
     expect(sent.contents).toEqual([{ role: 'user', parts: [{ text: '来週のメニューを作って' }] }])
     expect(sent.generationConfig).toMatchObject({ responseMimeType: 'application/json', temperature: 0.4 })
     expect(sent.generationConfig.responseSchema.required).toEqual(['message'])
+    expect(sent.generationConfig.responseSchema.properties.requestedSplit.enum).toEqual(['full_body', 'upper_lower', 'ppl', 'ul_ppl'])
     expect(JSON.stringify(sent)).not.toContain(PASSCODE)
   })
 

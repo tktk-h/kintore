@@ -22,6 +22,11 @@ describe('parseCoachReply', () => {
     expect(parseCoachReply(JSON.stringify(valid))).toEqual(valid)
   })
 
+  it('分割法の変更の依頼（requestedSplit）を読み取る。知らない値は捨てる', () => {
+    expect(parseCoachReply({ message: '変えます', requestedSplit: 'ppl' })).toEqual({ message: '変えます', requestedSplit: 'ppl' })
+    expect(parseCoachReply({ message: '変えます', requestedSplit: 'bro' })).toEqual({ message: '変えます' })
+  })
+
   it('message のみ', () => {
     expect(parseCoachReply({ message: 'こんにちは' })).toEqual({ message: 'こんにちは' })
     expect(parseCoachReply({ message: 'こんにちは', proposal: null })).toEqual({ message: 'こんにちは' })

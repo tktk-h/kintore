@@ -5,6 +5,8 @@ import { PageHeader } from '../../components/PageHeader'
 import { Stepper } from '../../components/Stepper'
 import { useSafeAction } from '../../components/Toast'
 import { ACCESS_LABELS, EXPERIENCE_LABELS, GOAL_LABELS } from '../../coach/context'
+import { chooseSplit, effectiveDays, SPLIT_LABELS } from '../../coach/split'
+import type { SplitType } from '../../coach/types'
 import type { BaselineLift, EquipmentAccess, Experience, Goal, Profile } from '../../db/types'
 import { WEEKDAYS } from '../../lib/dates'
 import { getProfile, saveProfile } from '../../repo/profile'
@@ -15,6 +17,15 @@ export const BASELINE_LIFTS: { id: string; name: string }[] = [
   { id: 'ex-squat', name: 'スクワット' },
   { id: 'ex-deadlift', name: 'デッドリフト' },
   { id: 'ex-overhead-press', name: 'オーバーヘッドプレス' },
+]
+
+/** 分割法の選択肢。自動は希望なし（日数と経験から選ぶ） */
+const SPLIT_CHOICES: ChipOption<SplitType | undefined>[] = [
+  { value: undefined, label: '自動（おすすめ）' },
+  { value: 'full_body', label: '全身法' },
+  { value: 'upper_lower', label: '上半身・下半身' },
+  { value: 'ppl', label: 'PPL' },
+  { value: 'ul_ppl', label: '上下＋PPL' },
 ]
 
 /** 月曜始まりで並べる（値は 0=日〜6=土） */
@@ -76,7 +87,13 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
   const [equipment, setEquipment] = useState<EquipmentAccess[]>(initial?.equipment ?? [])
   const [injuries, setInjuries] = useState(initial?.injuries ?? '')
   const [baselines, setBaselines] = useState<BaselineText>(() => toBaselineText(initial?.baselines ?? []))
+  const [preferredSplit, setPreferredSplit] = useState<SplitType | undefined>(initial?.preferredSplit)
   const [error, setError] = useState<string>()
+  // 選んだ分割法が今の日数・経験で組めないときは、何で組むかを知らせる
+  const actualSplit = preferredSplit && experience ? chooseSplit(daysPerWeek, experience, preferredSplit) : undefined
+  const splitNote = preferredSplit && experience && actualSplit !== preferredSplit
+    ? `今の条件（週${effectiveDays(daysPerWeek, experience)}日・経験）では${SPLIT_LABELS[preferredSplit]}を組めないため、${SPLIT_LABELS[actualSplit!]}で組みます。`
+    : undefined
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
 
@@ -98,7 +115,7 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
       equipment: (Object.keys(ACCESS_LABELS) as EquipmentAccess[]).filter((e) => equipment.includes(e)),
       injuries: injuries.trim(),
       baselines: toBaselines(baselines),
-      ...(initial?.preferredSplit ? { preferredSplit: initial.preferredSplit } : {}),
+      ...(preferredSplit ? { preferredSplit } : {}),
     }))
     if (ok) navigate('/coach')
   }
@@ -126,6 +143,13 @@ function ProfileForm({ initial }: { initial: Profile | null }) {
       {weekdays.length > 0 && weekdays.length < Math.min(daysPerWeek, 6) && (
         <p className="muted">行ける曜日が週の回数より少ないので、曜日の数に合わせて組みます。</p>
       )}
+      <ChipGroup
+        label="分割法"
+        options={SPLIT_CHOICES}
+        isOn={(v) => v === preferredSplit}
+        onToggle={setPreferredSplit}
+      />
+      {splitNote && <p className="muted">{splitNote}</p>}
       <ChipGroup
         label="使える器具"
         options={options(ACCESS_LABELS)}

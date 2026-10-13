@@ -111,7 +111,7 @@ export const COACH_SYSTEM_PROMPT = [
   '- 部位ごとの週のセット数は目標（主に使う部位1、補助0.5で数える）に収める。同じ部位の日の間は48時間以上あける。',
   '- 重さはアプリが計算するので、決めなくてよい。',
   '- skeleton.deload が true のときは軽めの週（セット数は約半分、重さは据え置き）。message で軽めの週であることと理由（skeleton.deloadReason）を短く伝える。',
-  '- 分割法の変更を頼まれたら、message で受け付けたことを伝える（アプリが組み直す）。',
+  '- 分割法の変更を頼まれたら、requestedSplit にその分割法（full_body／upper_lower／ppl／ul_ppl）を入れ、message で受け付けたことを伝える。このときは proposal を返さない（今の骨組みと違う分割法の案を作らない）。アプリが骨組みを組み直して、もう一度案を頼む。',
   '- proposal の date は YYYY-MM-DD、slot は骨組みの枠のID、exerciseId は候補のID をそのまま使う。',
   '- reasons には、この構成にした理由を短く書く。message にはチャットに出す返事を書く。',
 ].join('\n')
@@ -130,8 +130,7 @@ function intentText(intent: CoachIntent, earliestDate: string | undefined): stri
 
 function deloadText(skeleton: Skeleton): string {
   if (!skeleton.deload) return ''
-  return `
-対象週は軽めの週（デロード）です。理由：${skeleton.deloadReason ?? '疲れを抜くため'}。セット数は骨組みのとおり約半分で、重さは据え置きです。message でこのことを伝えてください。`
+  return `\n対象週は軽めの週（デロード）です。理由：${skeleton.deloadReason ?? '疲れを抜くため'}。セット数は骨組みのとおり約半分で、重さは据え置きです。message でこのことを伝えてください。`
 }
 
 function formatSet(s: SetValues): string {

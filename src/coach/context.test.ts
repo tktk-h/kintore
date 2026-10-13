@@ -80,6 +80,7 @@ describe('buildCoachRequest', () => {
     expect(r.system).toContain('前の週')
     expect(r.system).toContain('ケガ')
     expect(r.system).toContain('日本語')
+    expect(r.system).toContain('requestedSplit')
   })
 
   it('context にプロフィール・骨組み・枠ごとの候補と前の週の種目が入る', () => {
