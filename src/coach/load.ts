@@ -112,14 +112,28 @@ export function decideLoad(args: {
     }
   }
 
+  if (logType === 'time_distance') return timedDecision(last, prev, prev2, low)
   const d = progress(last, prev, prev2, repRange, step)
-  if (logType === 'time_distance') return { reps: d.reps, setDelta: d.setDelta, reason: d.reason }
   if (logType === 'reps') {
     // 重さで調整しないので、回数を下限に戻さずに伸ばしていく
     const reps = outcome(last, repRange) === 'reached' ? high : Math.min(high, Math.max(low, Math.min(...last.repsPerSet) + 1))
     return { weight: last.weight ? last.weight : undefined, reps, setDelta: d.setDelta, reason: d.reason }
   }
   return d
+}
+
+/**
+ * 時間の種目は回数の記録がないので、回数による判断（届いた・届かなかった）はしない。
+ * セット数はきつさだけで決める：限界（5）が2回続けば1セット減らし、楽（1〜2）が3回続けば1セット増やす。
+ */
+function timedDecision(last: PastSession, prev: PastSession | undefined, prev2: PastSession | undefined, low: number): LoadDecision {
+  if (last.effort === 5 && prev?.effort === 5) {
+    return { reps: low, setDelta: -1, reason: '限界のきつさが2回続いたので、1セット減らします。' }
+  }
+  if (isEasy(last) && isEasy(prev) && isEasy(prev2)) {
+    return { reps: low, setDelta: 1, reason: '楽な状態が続いているので、1セット増やします。' }
+  }
+  return { reps: low, setDelta: 0, reason: '時間の種目なので、前回と同じ内容で続けます。' }
 }
 
 function progress(

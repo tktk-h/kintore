@@ -133,3 +133,20 @@ describe('decideLoad（設計書「5. 重さの決め方」）', () => {
     expect(time.weight).toBeUndefined()
   })
 })
+
+describe('decideLoad：時間の種目', () => {
+  const timed = (history: PastSession[]) => decideLoad({ history, repRange: range, step, logType: 'time_distance' })
+
+  it('回数がないのを「届かなかった」と扱わない（セット数を減らし続けない）', () => {
+    const d = timed(hist([0, [0, 0, 0], 3], [0, [0, 0, 0], 3], [0, [0, 0, 0], 3]))
+    expect(d.setDelta).toBe(0)
+    expect(d.weight).toBeUndefined()
+    expect(timed(hist([0, [], undefined])).setDelta).toBe(0)
+  })
+
+  it('セット数はきつさだけで決める：限界が2回続けば減らし、楽が3回続けば増やす', () => {
+    expect(timed(hist([0, [0], 5], [0, [0], 5])).setDelta).toBe(-1)
+    expect(timed(hist([0, [0], 2], [0, [0], 1], [0, [0], 2])).setDelta).toBe(1)
+    expect(timed(hist([0, [0], 2], [0, [0], 1])).setDelta).toBe(0)
+  })
+})

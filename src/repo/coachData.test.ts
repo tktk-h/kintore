@@ -100,6 +100,16 @@ describe('loadCoachInputs', () => {
     expect(r.slotSetDelta).toEqual({ 'upper.1': -1, 'upper.2': 1, 'upper.6': 0 })
   })
 
+  it('時間の種目（プランク）は回数がなくてもセット数を減らさない', async () => {
+    const plank = { exerciseId: 'ex-plank', restSec: 45, sets: [{ durationSec: 60 }], slot: 'lower.6', repRange: [10, 15] as [number, number] }
+    await addPlan({ date: '2026-10-12', source: 'ai', exercises: [plank] })
+    await addWorkout('2026-10-12', [{ exerciseId: 'ex-plank', effort: 3, sets: [{}, {}] }])
+    await addWorkout('2026-10-08', [{ exerciseId: 'ex-plank', effort: 3, sets: [{}, {}] }])
+    await addWorkout('2026-10-05', [{ exerciseId: 'ex-plank', effort: 3, sets: [{}, {}] }])
+    const r = await loadCoachInputs(NEXT, TODAY)
+    expect(r.slotSetDelta).toEqual({ 'lower.6': 0 })
+  })
+
   it('最後の軽めの週からの週数（なければ最初のAIの週から、AIの予定がなければ0）', async () => {
     expect((await loadCoachInputs(NEXT, TODAY)).weeksSinceDeload).toBe(0)
 

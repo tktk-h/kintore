@@ -2,7 +2,7 @@ import type { CoachHistory, HistoryWorkout } from '../coach/context'
 import { HISTORY_DAYS } from '../coach/context'
 import { decideLoad, type PastSession } from '../coach/load'
 import { db } from '../db/db'
-import type { ChatMessage, Exercise, PlannedWorkout, Profile, SetRecord, Settings, Workout } from '../db/types'
+import type { ChatMessage, Exercise, LogType, PlannedWorkout, Profile, SetRecord, Settings, Workout } from '../db/types'
 import { addDays, daysBetween, mondayOf, todayKey } from '../lib/dates'
 import { valuesOf } from '../lib/setValues'
 import { listChatMessages } from './chat'
@@ -37,8 +37,17 @@ const weeksBetween = (from: string, to: string) => Math.max(0, Math.floor(daysBe
  * 1回分の記録を PastSession にする。
  * weight は完了セットの一番重い重さ、repsPerSet はその重さで行った完了セットの回数（ウォームアップを除くため）。
  * targetReps は予定から始めたなら予定の回数、なければ一番多い回数。
+ * 時間の種目は重さ0・回数なし（きつさだけ）にする。
  */
-function toSession(date: string, sets: SetRecord[], plannedReps: number | undefined, effort: PastSession['effort']): PastSession {
+function toSession(
+  date: string, sets: SetRecord[], plannedReps: number | undefined, effort: PastSession['effort'], logType: LogType | undefined,
+): PastSession {
+  if (logType === 'time_distance') {
+    // 時間の種目は回数がないので、回数による判断に使わない（きつさだけ残す）
+    const timed: PastSession = { date, weight: 0, repsPerSet: [], targetReps: 0 }
+    if (effort !== undefined) timed.effort = effort
+    return timed
+  }
   const top = Math.max(...sets.map((s) => s.weight ?? 0))
   const working = sets.filter((s) => (s.weight ?? 0) === top)
   const repsPerSet = working.map((s) => s.reps ?? 0)
@@ -89,7 +98,7 @@ export async function loadCoachInputs(weekStart: string, today = todayKey()): Pr
       if (done.length === 0) continue
       entry.exercises.push({ exerciseId: we.exerciseId, sets: done.map(valuesOf), ...(we.effort ? { effort: we.effort } : {}) })
       const plannedReps = plan?.exercises.find((pe) => pe.exerciseId === we.exerciseId)?.sets.find((s) => s.reps !== undefined)?.reps
-      ;(sessions[we.exerciseId] ??= []).push(toSession(w.date, done, plannedReps, we.effort))
+      ;(sessions[we.exerciseId] ??= []).push(toSession(w.date, done, plannedReps, we.effort, exById.get(we.exerciseId)?.logType))
     }
     if (entry.exercises.length) historyWorkouts.push(entry)
   }
