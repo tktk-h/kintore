@@ -64,4 +64,14 @@ describe('toProposal', () => {
     expect(p.muscleSets.chest).toBe(3)
     expect(p.muscleSets.triceps).toBe(1.5)
   })
+
+  it('分割法はAIの言い分ではなく、アプリの骨組みのものにする', () => {
+    const profile: Profile = {
+      id: 'me', goal: 'hypertrophy', experience: 'y1_3', daysPerWeek: 4, minutesPerSession: 60,
+      weekdays: [1, 2, 4, 5], equipment: ['gym_free'], injuries: '', baselines: [], updatedAt: 0,
+    }
+    const skeleton = buildSkeleton({ profile, weekStart: '2026-10-19', weeksSinceDeload: 1 })
+    const reply = parseCoachReply({ ...valid, proposal: { ...valid.proposal, split: 'ppl' } })
+    expect(toProposal(reply.proposal!, skeleton, seedExercises()).split).toBe('upper_lower')
+  })
 })

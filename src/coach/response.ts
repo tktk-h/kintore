@@ -14,6 +14,7 @@ void splitTypesMatch
 /**
  * AIのメニュー案をアプリのメニュー案にする（重さはまだ入れない）。
  * 回数の幅は骨組みの枠から取る（同じ日の同じ枠、なければ同じIDの枠、どちらもなければ AI の回数だけ）。
+ * 分割法はアプリが決めた骨組みのものにする（AIが違う分割法を名乗っても表示しない）。
  */
 export function toProposal(p: CoachReplyProposal, skeleton: Skeleton, catalog: Exercise[]): Proposal {
   const slotOf = (date: string, slot: string) =>
@@ -33,7 +34,7 @@ export function toProposal(p: CoachReplyProposal, skeleton: Skeleton, catalog: E
     })),
   }))
   return {
-    split: p.split,
+    split: skeleton.split,
     days,
     reasons: p.reasons,
     issues: [],
