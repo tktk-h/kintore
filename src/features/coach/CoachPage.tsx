@@ -41,6 +41,25 @@ export function CoachPage({ send = sendToCoach }: Props) {
   const [sending, setSending] = useState(false)
   const [failure, setFailure] = useState<Failure>()
   const endRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLFormElement>(null)
+
+  // 入力欄の高さを測って CSS の --composer-h に入れる（最後のメッセージが隠れないように下をあける）
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    const root = document.documentElement
+    const update = () => {
+      const h = el.getBoundingClientRect().height
+      if (h > 0) root.style.setProperty('--composer-h', `${Math.ceil(h)}px`)
+    }
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    observer?.observe(el)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty('--composer-h')
+    }
+  }, [])
 
   const loaded = profile !== undefined && passcode !== undefined
   const ready = !!profile && !!passcode
@@ -150,7 +169,7 @@ export function CoachPage({ send = sendToCoach }: Props) {
       )}
       <div ref={endRef} className="chat-end" />
 
-      <form className="coach-composer" onSubmit={submit}>
+      <form ref={composerRef} className="coach-composer" onSubmit={submit}>
         {!online && <p className="composer-note">オフラインのため送信できません。電波のよい所で送ってください。</p>}
         <div className="chips coach-quick" role="group" aria-label="よく使う依頼">
           {QUICK_ASKS.map((q) => (

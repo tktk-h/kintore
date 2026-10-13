@@ -1,7 +1,15 @@
 /* ===== AIコーチ ===== */
 
-/* 入力欄が下に固定されるので、その分だけ下をあける */
-.page.coach-page { padding-bottom: calc(var(--nav-h) + 150px + env(safe-area-inset-bottom)); }
+/*
+ * 入力欄は下に固定する。高さ（--composer-h）は画面で測って入れる（オフラインの注意や、依頼のボタンの折り返しで変わる）。
+ * --composer-offset は入力欄の下の位置：ふだんは下のメニューの上、入力中は下のメニューを隠して画面の一番下。
+ */
+:root { --composer-h: 150px; --composer-offset: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
+:root:has(.coach-composer:focus-within) { --composer-offset: 0px; }
+body:has(.coach-composer:focus-within) .bottom-nav { display: none; }
+body:has(.coach-composer:focus-within) .coach-composer { padding-bottom: calc(var(--s-2) + env(safe-area-inset-bottom)); }
+/* 最後のメッセージが入力欄に隠れないよう、その分だけ下をあける */
+.page.coach-page { padding-bottom: calc(var(--composer-offset) + var(--composer-h) + var(--s-4)); }
 
 /* チャット */
 .chat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-3); }
@@ -26,7 +34,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  bottom: var(--composer-offset);
   z-index: 15;
   display: flex;
   flex-direction: column;
@@ -38,7 +46,8 @@
   border-top: 1px solid var(--line);
 }
 .coach-composer > * { width: 100%; max-width: 608px; margin-left: auto; margin-right: auto; }
-.coach-composer .chips.coach-quick { margin: 0 auto; padding: 0; }
+/* 依頼のボタンは横にスクロールさせず、狭い画面では折り返す */
+.coach-composer .chips.coach-quick { flex-wrap: wrap; overflow-x: visible; margin: 0 auto; padding: 0; }
 .composer-note { color: var(--danger); font-size: var(--fs-caption); font-weight: 600; }
 .composer-row { display: flex; align-items: center; gap: var(--s-2); }
 .composer-row input[type='text'] { flex: 1; min-width: 0; min-height: 44px; padding: 10px 16px; border-radius: var(--r-pill); font-size: 16px; }
@@ -63,7 +72,7 @@
 .chip:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
 /* 休憩タイマーのバーは入力欄の上に出す */
-body:has(.coach-composer) .timer-bar { bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 118px); }
+body:has(.coach-composer) .timer-bar { bottom: calc(var(--composer-offset) + var(--composer-h) + 10px); }
 
 /* メニュー案カード */
 .proposal-card { width: 100%; }
@@ -110,4 +119,4 @@ body:has(.coach-composer) .timer-bar { bottom: calc(var(--nav-h) + env(safe-area
 .baseline-row input[type='number']:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .form-error { color: var(--danger); font-size: var(--fs-sub); font-weight: 700; }
 /* 一番下へ送るとき、固定の入力欄と下のメニューに隠れないようにする */
-.chat-end { scroll-margin-bottom: calc(var(--nav-h) + 130px + env(safe-area-inset-bottom)); }
+.chat-end { scroll-margin-bottom: calc(var(--composer-offset) + var(--composer-h) + var(--s-3)); }
