@@ -1,5 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { exportBackup } from '../../lib/backup'
 import { addChatMessage, listChatMessages } from '../../repo/chat'

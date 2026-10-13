@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { describe, expect, it } from 'vitest'
 import { loadTimer, pauseTimer, saveTimer, startTimer } from '../../lib/restTimer'
 import { RestTimerProvider, useRestTimer } from './RestTimerContext'

@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../test/user'
 import { describe, expect, it, vi } from 'vitest'
 import { Stepper } from './Stepper'
 

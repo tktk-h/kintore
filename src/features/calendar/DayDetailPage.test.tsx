@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveBodyLog } from '../../repo/body'
 import { getPlanForDate } from '../../repo/plans'

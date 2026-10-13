@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS, type Exercise, type SetRecord } from '../../db/types'
 import { newRecord } from '../../lib/records'

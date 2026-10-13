@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CoachReply } from '../../../api/_lib/schema'
 import { buildSkeleton } from '../../coach/skeleton'
@@ -62,6 +62,13 @@ async function ready() {
   await saveSettings({ coachPasscode: 'pass' })
 }
 
+/** 読み込みが終わって押せるようになったボタン（押せないうちに押しても何も起きないため） */
+async function enabledButton(name: string) {
+  const button = await screen.findByRole('button', { name })
+  await waitFor(() => expect(button).toBeEnabled())
+  return button
+}
+
 const open = (send: SendToCoach) => renderPage('/coach', '/coach', <CoachPage send={send} />)
 
 describe('CoachPage', () => {
@@ -84,7 +91,7 @@ describe('CoachPage', () => {
     await ready()
     const send = vi.fn<SendToCoach>(async () => goodReply())
     open(send)
-    await userEvent.click(await screen.findByRole('button', { name: '来週のメニューを作って' }))
+    await userEvent.click(await enabledButton('来週のメニューを作って'))
     expect(await screen.findByText(/来週のメニューです/)).toBeInTheDocument()
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].messages.at(-1)?.text).toBe('来週のメニューを作って')
@@ -110,7 +117,7 @@ describe('CoachPage', () => {
     const routine = await createRoutine({ name: '胸の日', exercises: [] })
     await assignRoutineToDate(routine.id, first.date)
     open(vi.fn<SendToCoach>(async () => goodReply()))
-    await userEvent.click(await screen.findByRole('button', { name: '来週のメニューを作って' }))
+    await userEvent.click(await enabledButton('来週のメニューを作って'))
     const card = await screen.findByRole('region', { name: 'メニュー案' })
     await userEvent.click(within(card).getByRole('button', { name: '反映する' }))
     const dialog = await screen.findByRole('dialog')
@@ -177,7 +184,7 @@ describe('CoachPage', () => {
   it('合言葉が違うときは設定へ案内する', async () => {
     await ready()
     open(vi.fn<SendToCoach>(async () => { throw new CoachError('unauthorized') }))
-    await userEvent.click(await screen.findByRole('button', { name: '今週を見直して' }))
+    await userEvent.click(await enabledButton('今週を見直して'))
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('合言葉')
     expect(within(alert).getByRole('link', { name: '設定を開く' })).toHaveAttribute('href', '/settings')
@@ -187,7 +194,7 @@ describe('CoachPage', () => {
     await ready()
     const send = vi.fn<SendToCoach>(async () => ({ message: '了解です' }))
     open(send)
-    await userEvent.click(await screen.findByRole('button', { name: '今日できなかった' }))
+    await userEvent.click(await enabledButton('今日できなかった'))
     await waitFor(() => expect(send).toHaveBeenCalled())
     const ctx = JSON.parse(send.mock.calls[0][0].context)
     expect(ctx.request).toContain(`${addDays(todayKey(), 1)} 以降`)
@@ -198,7 +205,7 @@ describe('CoachPage', () => {
     let resolve!: (r: CoachReply) => void
     const send = vi.fn<SendToCoach>(() => new Promise((r) => { resolve = r }))
     open(send)
-    await userEvent.click(await screen.findByRole('button', { name: '今日できなかった' }))
+    await userEvent.click(await enabledButton('今日できなかった'))
     expect(await screen.findByText('考え中…')).toBeInTheDocument()
     await waitFor(() => expect(send).toHaveBeenCalled())
     expect(screen.getByRole('button', { name: '今週を見直して' })).toBeDisabled()

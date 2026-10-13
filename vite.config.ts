@@ -59,7 +59,9 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     passWithNoTests: true,
     // jsdom の画面テストは PC の負荷で遅くなることがあるため、既定の 5 秒より長めにする
-    // （画面テストが増え、全体を並列で走らせると操作の多いテストが 15 秒を超えることがあったので 30 秒）
-    testTimeout: 30000,
+    testTimeout: 15000,
+    // 並列を増やしすぎると jsdom の画面テストが互いに遅くなる（1本が10秒を超えることがあった）ので4つまで。
+    // 4つにすると全体も速くなった（約70秒 → 約50秒）。pool: 'vmThreads' は速くならず、不安定だったので使わない
+    maxWorkers: 4,
   },
 })

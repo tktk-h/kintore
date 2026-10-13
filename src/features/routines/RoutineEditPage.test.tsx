@@ -1,5 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createRoutine, listRoutines } from '../../repo/routines'
 import { resetDb } from '../../test/db'

@@ -1,5 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '../../test/user'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadTimer, saveTimer, startTimer } from '../../lib/restTimer'
 import { db } from '../../db/db'
