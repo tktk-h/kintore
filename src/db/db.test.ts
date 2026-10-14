@@ -46,7 +46,7 @@ describe('db', () => {
     old.close()
 
     await db.open()
-    expect(db.verno).toBe(2)
+    expect(db.verno).toBe(3)
     expect(await db.exercises.get('ex-squat')).toMatchObject({ pattern: 'squat', primary: ['quads', 'glutes'], compound: true })
     // 名前などの既存の値は変えない
     expect(await db.exercises.get(oldSeeds[0].id)).toMatchObject({ name: '自分で名前を変えたベンチ', pattern: 'horizontal_push' })
@@ -59,5 +59,35 @@ describe('db', () => {
     expect(await db.exercises.count()).toBe(oldSeeds.length + 1)
     // 新しい表がある
     expect(db.tables.map((t) => t.name)).toEqual(expect.arrayContaining(['profile', 'chatMessages']))
+    // 初心者の目安の重さも書き足す
+    expect((await db.exercises.get('ex-leg-extension'))?.startWeight).toBe(20)
+  })
+
+  it('version 2 のDBを開き直すと、定番種目に初心者の目安の重さが足される（入っている値・自作種目は変えない）', async () => {
+    db.close()
+    await Dexie.delete('kintore')
+
+    const old = new Dexie('kintore')
+    old.version(2).stores({ ...SCHEMA_V1, profile: 'id', chatMessages: 'id, createdAt' })
+    await old.open()
+    const v2Seeds = seedExercises().map(({ startWeight: _w, ...rest }) => rest)
+    const squat = v2Seeds.findIndex((e) => e.id === 'ex-squat')
+    v2Seeds[squat] = { ...v2Seeds[squat], startWeight: 45 } as (typeof v2Seeds)[number]
+    await old.table('exercises').bulkAdd(v2Seeds)
+    await old.table('exercises').add({
+      id: 'my-ex', name: '自作', bodyPart: 'chest', equipment: 'machine', logType: 'weight_reps', pattern: 'horizontal_push',
+      defaultRestSec: 60, custom: true, createdAt: 1, updatedAt: 1, deleted: false,
+    })
+    await old.table('chatMessages').add({ id: 'c1', role: 'user', text: 'こんにちは', createdAt: 1, updatedAt: 1, deleted: false })
+    old.close()
+
+    await db.open()
+    expect(db.verno).toBe(3)
+    expect(await db.exercises.get('ex-leg-extension')).toMatchObject({ startWeight: 20, pattern: 'quad_isolation' })
+    expect(await db.exercises.get('ex-dumbbell-press')).toMatchObject({ startWeight: 10 })
+    expect((await db.exercises.get('ex-squat'))?.startWeight).toBe(45)
+    expect(await db.exercises.get('ex-push-up')).not.toHaveProperty('startWeight')
+    expect(await db.exercises.get('my-ex')).not.toHaveProperty('startWeight')
+    expect(await db.chatMessages.get('c1')).toMatchObject({ text: 'こんにちは' })
   })
 })

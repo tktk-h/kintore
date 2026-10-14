@@ -91,6 +91,18 @@ describe('backup', () => {
     expect((await db.exercises.get('my-ex'))?.pattern).toBeUndefined()
   })
 
+  it('初心者の目安の重さがない古いバックアップを読み込むと書き足す（入っている値は変えない）', async () => {
+    const backup = await exportBackup()
+    const old = (backup.data.exercises as Record<string, unknown>[]).map(({ startWeight: _w, ...rest }) =>
+      rest.id === 'ex-squat' ? { ...rest, startWeight: 45 } : rest)
+    const text = JSON.stringify({ ...backup, data: { ...backup.data, exercises: old } })
+
+    await importBackup(parseBackup(text))
+    expect((await db.exercises.get('ex-leg-extension'))?.startWeight).toBe(20)
+    expect((await db.exercises.get('ex-squat'))?.startWeight).toBe(45)
+    expect(await db.exercises.get('ex-push-up')).not.toHaveProperty('startWeight')
+  })
+
   it.each([
     ['injuries が文字でない', { injuries: 3 }],
     ['baselines が配列でない', { baselines: 'x' }],

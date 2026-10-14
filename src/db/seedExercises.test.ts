@@ -19,6 +19,22 @@ describe('seedExercises', () => {
     }
   })
 
+  it('重量×回数の種目（自重以外）すべてに初心者の目安の重さがあり、自重・回数のみ・時間の種目にはない', () => {
+    for (const e of all) {
+      if (e.logType === 'weight_reps' && e.equipment !== 'bodyweight') {
+        expect(e.startWeight, e.id).toBeGreaterThan(0)
+        expect(e.startWeight!, e.id).toBeLessThanOrEqual(60)
+      } else {
+        expect(e, e.id).not.toHaveProperty('startWeight')
+      }
+    }
+    expect(byId('ex-leg-extension').startWeight).toBe(20)
+    expect(byId('ex-bench-press').startWeight).toBe(30)
+    // ダンベルは片手あたり
+    expect(byId('ex-dumbbell-press').startWeight).toBe(10)
+    expect(byId('ex-side-raise').startWeight).toBe(4)
+  })
+
   it('主な種目の分類', () => {
     const bench = byId('ex-bench-press')
     expect(bench).toMatchObject({ pattern: 'horizontal_push', primary: ['chest'], compound: true })

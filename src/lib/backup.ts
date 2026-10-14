@@ -100,7 +100,7 @@ export async function importBackup(file: BackupFile): Promise<void> {
         await db.table(t).clear()
         await db.table(t).bulkAdd(file.data[t])
       }
-      // フェーズ1b より前のバックアップの定番種目には動きの種類などがないので書き足す（DB の version 2 と同じ）
+      // 古いバックアップの定番種目には動きの種類や初心者の目安の重さがないので書き足す（DB の version 2・3 と同じ）
       await db.exercises.toCollection().modify((e: Exercise) => {
         backfillSeedMetadata(e)
       })

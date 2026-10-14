@@ -134,6 +134,31 @@ describe('decideLoad（設計書「5. 重さの決め方」）', () => {
   })
 })
 
+describe('decideLoad：初心者の目安の重さ（種目の startWeight）', () => {
+  it('記録 → プロフィールの重量 → 種目の目安の重さ → 初期値 の順で決める', () => {
+    const base = { repRange: range, step, logType: 'weight_reps' as const, defaultWeight: 5 }
+    expect(decideLoad({ ...base, history: [], startWeight: 20 }).weight).toBe(20)
+    expect(decideLoad({ ...base, history: [], startWeight: 20, baseline: { weight: 100, reps: 5 } }).weight).toBe(92.5)
+    expect(decideLoad({ ...base, history: hist([40, [12, 12, 12], 3]), startWeight: 20 }).weight).toBe(42.5)
+    expect(decideLoad({ ...base, history: [] }).weight).toBe(5)
+  })
+
+  it('目安の重さも刻み幅で丸める（ダンベル 6kg・刻み幅 2.5 → 5kg、刻み幅 1 → 6kg）', () => {
+    expect(decideLoad({ history: [], repRange: range, step: 2.5, logType: 'weight_reps', startWeight: 6 }).weight).toBe(5)
+    expect(decideLoad({ history: [], repRange: range, step: 1, logType: 'weight_reps', startWeight: 6 }).weight).toBe(6)
+    expect(decideLoad({ history: [], repRange: range, step: 2.5, logType: 'weight_reps', startWeight: 7.5 }).weight).toBe(7.5)
+  })
+
+  it('丸めて0になるときは刻み幅1つ分にする', () => {
+    expect(decideLoad({ history: [], repRange: range, step: 5, logType: 'weight_reps', startWeight: 2 }).weight).toBe(5)
+  })
+
+  it('回数のみ・時間の種目には使わない', () => {
+    expect(decideLoad({ history: [], repRange: range, step, logType: 'reps', startWeight: 10 }).weight).toBeUndefined()
+    expect(decideLoad({ history: [], repRange: range, step, logType: 'time_distance', startWeight: 10 }).weight).toBeUndefined()
+  })
+})
+
 describe('decideLoad：目標回数は回数の幅に収める', () => {
   it('初めての種目（記録なし）は、重量×回数があってもなくても幅の下限から（ダブルプログレッションの始まり）', () => {
     for (const repRange of [[8, 12], [10, 15], [6, 10], [3, 6]] as [number, number][]) {

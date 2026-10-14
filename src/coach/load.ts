@@ -88,7 +88,8 @@ const isEasy = (s?: PastSession) => s?.effort !== undefined && s.effort <= 2
  *
  * 記録がないとき（設計書「5. 重さの決め方」）：
  * - プロフィールの「重量×回数」があれば 推定1RM × 目標回数（幅の下限）の割合 を刻み幅で丸める
- * - なければ初期値（defaultWeight。既定は20kg、null なら重さなし）で軽めに試す
+ * - なければ種目の初心者の目安の重さ（startWeight）、それもなければ初期値（defaultWeight。既定は20kg、null なら重さなし）で
+ *   軽めに試す（どちらも刻み幅で丸め、0kg になるときは刻み幅1つ分）
  *
  * 記録があるとき（設計書「6. きつさによる調整」の表。直近2回の流れで、上から順に判断）：
  * 1. 同じ重さで3回続けて届かなかった → 10%下げる、1セット減らす
@@ -117,7 +118,9 @@ export interface DecideLoadArgs {
   step: number
   baseline?: { weight: number; reps: number }
   logType: LogType
-  /** 記録も重量×回数もないときの重さ（defaultWeightFor）。既定は20kg、null なら重さを入れない */
+  /** 記録も重量×回数もないときの、種目ごとの初心者の目安の重さ（Exercise.startWeight）。defaultWeight より優先する */
+  startWeight?: number
+  /** 記録も重量×回数も目安の重さもないときの重さ（defaultWeightFor）。既定は20kg、null なら重さを入れない */
   defaultWeight?: number | null
 }
 
@@ -125,7 +128,7 @@ export interface DecideLoadArgs {
 export const FALLBACK_STEP = 2.5
 
 function decideUnrounded(args: DecideLoadArgs): LoadDecision {
-  const { repRange, step, baseline, logType, defaultWeight = DEFAULT_WEIGHT } = args
+  const { repRange, step, baseline, logType, startWeight, defaultWeight = DEFAULT_WEIGHT } = args
   const [low, high] = repRange
   const history = [...args.history].sort((a, b) => b.date.localeCompare(a.date))
   const [last, prev, prev2] = history
@@ -136,10 +139,17 @@ function decideUnrounded(args: DecideLoadArgs): LoadDecision {
       const weight = roundToStep(estimate1RM(baseline.weight, baseline.reps) * percentForReps(low), step)
       return { weight, reps: low, setDelta: 0, reason: `今の重量（${baseline.weight}kg×${baseline.reps}回）から、${low}回できる重さを計算しました。` }
     }
+    // 丸めて0kgになるときは刻み幅1つ分にする
+    const start = (w: number) => Math.max(step, roundToStep(w, step))
+    if (startWeight !== undefined && startWeight > 0) {
+      const weight = start(startWeight)
+      return { weight, reps: low, setDelta: 0, reason: `記録がないので、初心者の目安の重さ（${weight}kg）で試して、きつさを記録してください。` }
+    }
     if (defaultWeight === null) return { reps: low, setDelta: 0, reason: '初めての種目なので、目標回数の下限から始めます。' }
+    const weight = start(defaultWeight)
     return {
-      weight: defaultWeight, reps: low, setDelta: 0,
-      reason: `記録がないので、最初は軽めの重さ（${defaultWeight}kg）で試して、きつさを記録してください。`,
+      weight, reps: low, setDelta: 0,
+      reason: `記録がないので、最初は軽めの重さ（${weight}kg）で試して、きつさを記録してください。`,
     }
   }
 

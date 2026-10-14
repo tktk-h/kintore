@@ -90,6 +90,7 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
         step: inputs.settings.weightStep,
         baseline: baseline ? { weight: baseline.weight, reps: baseline.reps } : undefined,
         logType: ex.logType,
+        startWeight: ex.startWeight,
         defaultWeight: defaultWeightFor(ex),
       })
       if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !baseline && decision.weight !== undefined) notes.add(decision.reason)

@@ -56,6 +56,11 @@ export interface Exercise extends BaseRecord {
   secondary?: Muscle[]
   /** 複数関節の種目か */
   compound?: boolean
+  /**
+   * 記録もプロフィールの重量もないときに始める、初心者の目安の重さ（kg）。
+   * ダンベルの種目は片手あたり。自重・回数のみ・時間の種目にはない
+   */
+  startWeight?: number
 }
 
 export interface SetValues {

@@ -48,6 +48,14 @@ export class KintoreDB extends Dexie {
           backfillSeedMetadata(e)
         })
       })
+    this.version(3)
+      .stores({ ...SCHEMA_V1, profile: 'id', chatMessages: 'id, createdAt' })
+      .upgrade(async (tx) => {
+        // 既存の定番種目に、初心者の目安の重さ（startWeight）を書き足す（入っている値は変えない）
+        await tx.table<Exercise, string>('exercises').toCollection().modify((e) => {
+          backfillSeedMetadata(e)
+        })
+      })
     this.on('populate', (tx) => {
       void tx.table('exercises').bulkAdd(seedExercises())
     })

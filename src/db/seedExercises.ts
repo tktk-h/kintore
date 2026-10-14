@@ -90,6 +90,30 @@ const ROWS: Row[] = [
   ['hiit', 'HIIT', 'cardio', 'other', 'time_distance', 60, 'cardio', ['quads'], ['glutes', 'hamstrings'], true],
 ]
 
+/**
+ * 初心者の目安の重さ（kg。ダンベルは片手あたり、ケーブルは片側あたり）。重量×回数の種目だけ（自重はなし）。
+ * 記録もプロフィールの重量もないときに、刻み幅で丸めて使う（設計書「5. 重さの決め方」）
+ */
+const START_WEIGHTS: Record<string, number> = {
+  // 胸
+  'bench-press': 30, 'incline-bench-press': 25, 'dumbbell-press': 10, 'incline-dumbbell-press': 8, 'dumbbell-fly': 6,
+  'chest-press': 20, 'pec-deck': 20, 'cable-crossover': 7.5,
+  // 背中
+  deadlift: 40, 'barbell-row': 30, 'one-arm-dumbbell-row': 12, 'lat-pulldown': 30, 'seated-cable-row': 30,
+  'machine-row': 30, 't-bar-row': 20,
+  // 脚
+  squat: 30, 'front-squat': 25, 'leg-press': 60, 'romanian-deadlift': 30, 'bulgarian-split-squat': 6, lunge: 6,
+  'leg-extension': 20, 'leg-curl': 15, 'hip-thrust': 30, 'calf-raise': 30,
+  // 肩
+  'overhead-press': 20, 'dumbbell-shoulder-press': 8, 'shoulder-press-machine': 15, 'side-raise': 4, 'rear-raise': 4,
+  'front-raise': 4, 'face-pull': 10, 'upright-row': 15,
+  // 腕
+  'barbell-curl': 15, 'dumbbell-curl': 6, 'hammer-curl': 6, 'preacher-curl': 10, 'cable-curl': 10,
+  'triceps-pushdown': 15, 'lying-triceps-extension': 15, 'overhead-triceps-extension': 8, 'close-grip-bench-press': 25,
+  // 腹
+  'cable-crunch': 15,
+}
+
 export function seedExercises(): Exercise[] {
   return ROWS.map(([id, name, bodyPart, equipment, logType, defaultRestSec, pattern, primary, secondary, compound]) => ({
     id: `ex-${id}`,
@@ -102,6 +126,7 @@ export function seedExercises(): Exercise[] {
     primary: [...primary],
     secondary: [...secondary],
     compound,
+    ...(START_WEIGHTS[id] !== undefined ? { startWeight: START_WEIGHTS[id] } : {}),
     custom: false,
     createdAt: 0,
     updatedAt: 0,
@@ -110,17 +135,26 @@ export function seedExercises(): Exercise[] {
 }
 
 /**
- * 定番種目に、動きの種類・部位・複数関節の情報を書き足す（名前などは変えない）。
- * 自作種目と、すでに動きの種類がある種目はそのまま。書き足したときは true。
- * DB の version 2 へのアップグレードと、古いバックアップの読み込みで使う。
+ * 定番種目に、後から足した情報を書き足す（名前などは変えない）。自作種目はそのまま。
+ * - 動きの種類・部位・複数関節：動きの種類がまだない種目だけ
+ * - 初心者の目安の重さ（startWeight）：まだない種目だけ（入っている値は変えない）
+ * 書き足したときは true。DB の version 2・3 へのアップグレードと、古いバックアップの読み込みで使う。
  */
 const SEED_BY_ID = new Map(seedExercises().map((e) => [e.id, e]))
 export function backfillSeedMetadata(e: Exercise): boolean {
   const seed = SEED_BY_ID.get(e.id)
-  if (e.custom || !seed || e.pattern !== undefined) return false
-  e.pattern = seed.pattern
-  e.primary = [...(seed.primary ?? [])]
-  e.secondary = [...(seed.secondary ?? [])]
-  e.compound = seed.compound
-  return true
+  if (e.custom || !seed) return false
+  let changed = false
+  if (e.pattern === undefined) {
+    e.pattern = seed.pattern
+    e.primary = [...(seed.primary ?? [])]
+    e.secondary = [...(seed.secondary ?? [])]
+    e.compound = seed.compound
+    changed = true
+  }
+  if (e.startWeight === undefined && seed.startWeight !== undefined) {
+    e.startWeight = seed.startWeight
+    changed = true
+  }
+  return changed
 }

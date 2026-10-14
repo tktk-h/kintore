@@ -73,12 +73,12 @@ describe('askCoach', () => {
     const bench = m.proposal!.days[0].exercises[0]
     // プロフィールの 100kg×5 → 推定1RM 116.7 × 6回の割合 0.85 → 99.2 → 100
     expect(bench).toMatchObject({ exerciseId: 'ex-bench-press', repRange: [6, 10], reps: 6, weight: 100 })
-    // 記録もプロフィールの重量もない種目は軽めに試す：複数関節は 20kg、ダンベルの複数関節は 10kg、単関節は 5kg
-    expect(m.proposal!.days[0].exercises[1]).toMatchObject({ exerciseId: 'ex-seated-cable-row', weight: 20 })
+    // 記録もプロフィールの重量もない種目は、種目ごとの初心者の目安の重さを刻み幅 2.5 で丸めて試す
+    expect(m.proposal!.days[0].exercises[1]).toMatchObject({ exerciseId: 'ex-seated-cable-row', weight: 30 })
     const upper = m.proposal!.days[0].exercises
-    expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 5 })
-    expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 10 })
-    expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 5 })
+    expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 5 }) // 4kg → 5kg
+    expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 7.5 }) // 8kg → 7.5kg
+    expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 15 })
     expect(m.text).toContain('軽め')
     expect(m.proposal!.muscleSets.chest).toBeGreaterThan(0)
 
@@ -96,8 +96,8 @@ describe('askCoach', () => {
     const send = vi.fn(async () => r)
     const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send })
     const got = m.proposal!.days[1].exercises.find((e) => e.slot === 'lower.3')!
-    // 筋肥大・1〜3年の単関節：10〜15回・75秒。記録がないので下限の10回、単関節は5kg
-    expect(got).toMatchObject({ exerciseId: 'ex-leg-extension', repRange: [10, 15], restSec: 75, reps: 10, weight: 5 })
+    // 筋肥大・1〜3年の単関節：10〜15回・75秒。記録がないので下限の10回、レッグエクステンションの目安の重さは20kg
+    expect(got).toMatchObject({ exerciseId: 'ex-leg-extension', repRange: [10, 15], restSec: 75, reps: 10, weight: 20 })
     for (const d of m.proposal!.days) {
       for (const e of d.exercises) expect(e.reps, e.exerciseId).toBe(e.repRange[0])
     }
