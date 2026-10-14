@@ -6,6 +6,7 @@ import {
 import { addDays, todayKey } from '../lib/dates'
 import { SPLIT_LABELS } from './split'
 import type { Skeleton } from './types'
+import { muscleSetTarget } from './volume'
 
 /** 依頼の種類：来週のメニュー／今週の見直し（今日以降）／普通のチャット（提案するかはAIが決める） */
 export type CoachIntent = 'next_week' | 'this_week' | 'chat'
@@ -107,8 +108,8 @@ export const COACH_SYSTEM_PROMPT = [
   '- 種目は、その枠の候補（slots[].candidates の id）からだけ選ぶ。候補が空の枠は入れない。',
   '- 重さを伸ばしていけるように、前の週にその枠で使った種目（slots[].previous）を続ける。変えるのは、伸びが止まったとき、本人が頼んだとき、ケガや器具の事情があるときだけ。',
   '- ケガや痛む所に負担がかかる種目は避ける。',
-  '- 骨組みの日付・枠・セット数・回数・休憩を守る。セット数は1種目2〜4（軽めの週は半分）、1日の合計は「1セット約3分」で1回の時間に収める。',
-  '- 部位ごとの週のセット数は目標（主に使う部位1、補助0.5で数える）に収める。同じ部位の日の間は48時間以上あける。',
+  '- 骨組みの日付・枠・セット数・回数・休憩を守る。セット数は1種目2〜4（ふくらはぎ・腹は3まで、軽めの週は半分）、1日の合計は「1セット約3分」で1回の時間に収める。回数の幅と休憩は、選んだ種目が単関節か複数関節かでアプリが決め直す。',
+  '- 部位ごとの週のセット数は目標（主に使う部位1、補助0.5で数える。ふくらはぎ・腹は skeleton.smallMuscleSetTarget）に収める。同じ部位の日の間は48時間以上あける。',
   '- 重さはアプリが計算するので、決めなくてよい。',
   '- skeleton.deload が true のときは軽めの週（セット数は約半分、重さは据え置き）。message で軽めの週であることと理由（skeleton.deloadReason）を短く伝える。',
   '- 分割法の変更を頼まれたら、requestedSplit にその分割法（full_body／upper_lower／ppl／ul_ppl）を入れ、message で受け付けたことを伝える。このときは proposal を返さない（今の骨組みと違う分割法の案を作らない）。アプリが骨組みを組み直して、もう一度案を頼む。',
@@ -216,6 +217,7 @@ export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
       splitLabel: SPLIT_LABELS[skeleton.split],
       weekStart: skeleton.weekStart,
       weeklySetTarget: skeleton.weeklySetTarget,
+      smallMuscleSetTarget: muscleSetTarget(skeleton.weeklySetTarget, 'calves'),
       deload: skeleton.deload,
       ...(skeleton.deloadReason ? { deloadReason: skeleton.deloadReason } : {}),
       notes: skeleton.notes,

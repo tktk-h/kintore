@@ -88,6 +88,7 @@ describe('buildCoachRequest', () => {
     expect(c.profile.goal).toBe('筋肥大')
     expect(c.skeleton.split).toBe('upper_lower')
     expect(c.skeleton.days).toHaveLength(4)
+    expect(c.skeleton.smallMuscleSetTarget).toEqual(c.skeleton.weeklySetTarget.map((n: number) => Math.ceil(n / 2)))
     const upper1 = c.slots.find((s: { slot: string }) => s.slot === 'upper.1')
     expect(upper1.previous).toEqual({ id: 'ex-bench-press', name: 'ベンチプレス' })
     expect(upper1.candidates.map((x: { id: string }) => x.id)).toContain('ex-bench-press')

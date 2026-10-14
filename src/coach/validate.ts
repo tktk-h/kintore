@@ -2,7 +2,7 @@ import { MOVEMENT_PATTERN_LABELS, MUSCLE_LABELS, MUSCLES, type Exercise, type Mu
 import { addDays, daysBetween, formatDateJa, parseDateKey } from '../lib/dates'
 import { MIN_GAP_DAYS } from './split'
 import type { Proposal, Skeleton, SlotPlan } from './types'
-import { countMuscleSets, estimateMuscleSets, MINUTES_PER_SET } from './volume'
+import { countMuscleSets, estimateMuscleSets, MINUTES_PER_SET, muscleSetTarget } from './volume'
 
 /** 1種目の値の範囲（設計書「メニュー案のチェック」） */
 export const LIMITS = { sets: [1, 10], reps: [1, 30], restSec: [0, 300] } as const
@@ -23,7 +23,8 @@ const fmt = (n: number) => String(Math.round(n * 10) / 10)
  * - 1日の合計時間（1セット3分）が1回の時間に収まる
  * 問題の文には種目ID・枠IDを出さない（種目名・動きの名前・「◯日の◯つ目の種目」で示す）。
  * - 部位ごとの週のセット数（主1・補助0.5、有酸素は除く）が目標から大きく外れていない
- *   （上限の1.5倍超は常に、下限の半分未満は骨組みがその部位を下限の半分以上鍛える予定で、軽めの週でないときだけ）
+ *   （上限の1.5倍超は常に、下限の半分未満は骨組みがその部位を下限の半分以上鍛える予定で、軽めの週でないときだけ）。
+ *   ふくらはぎ・腹は小さい目標（半分）で数える
  */
 export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile): string[] {
   const issues: string[] = []
@@ -114,7 +115,6 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
   }
 
   // 部位ごとの週のセット数（今週もう終えた日の分も足す）
-  const [min, max] = skeleton.weeklySetTarget
   const done = skeleton.doneMuscleSets ?? {}
   const plus = (a: Partial<Record<Muscle, number>>) => {
     const out = { ...a }
@@ -124,6 +124,7 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
   const actual = plus(countMuscleSets(proposal.days.flatMap((d) => d.exercises), catalog))
   const planned = plus(estimateMuscleSets(skeleton.days.flatMap((d) => d.slots)))
   for (const m of MUSCLES) {
+    const [min, max] = muscleSetTarget(skeleton.weeklySetTarget, m)
     const v = actual[m] ?? 0
     if (v > max * OVER_RATIO) {
       issues.push(`${MUSCLE_LABELS[m]}の週のセット数（${fmt(v)}）が多すぎます（目標${min}〜${max}）。`)

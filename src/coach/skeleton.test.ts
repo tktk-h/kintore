@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Profile } from '../db/types'
 import { buildSkeleton } from './skeleton'
 import type { Skeleton } from './types'
-import { estimateMuscleSets } from './volume'
+import { estimateMuscleSets, PATTERN_MUSCLES } from './volume'
 
 const MON = '2026-10-12'
 const profile = (p: Partial<Profile> = {}): Profile => ({
@@ -147,11 +147,18 @@ describe('buildSkeleton', () => {
     expect(s.days.map((d) => d.dayType)).toEqual(['lower', 'upper'])
     expect(s.done).toEqual([{ date: '2026-10-12', muscles: ['chest', 'back', 'front_delt'] }])
     expect(s.doneMuscleSets).toEqual({ chest: 8, back: 8, front_delt: 4 })
-    // 胸はすでに8セットあるので、残りの上半身の日の胸の枠は少なめ
+    // 胸はすでに8セットあるので、残りの上半身の日の胸の枠は増やさない（終えた分と合わせて上限の1.25倍まで）
     const fresh = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1, from: '2026-10-14' })
     const chestSets = (x: Skeleton) => estimateMuscleSets(allSlots(x)).chest ?? 0
-    expect(chestSets(s)).toBeLessThan(chestSets(fresh))
+    expect(chestSets(s)).toBeLessThanOrEqual(chestSets(fresh))
     expect(chestSets(s) + 8).toBeLessThanOrEqual(16 * 1.25)
+    // 終えた分が多ければ、残りの日の胸の枠を減らす
+    const many = buildSkeleton({
+      profile: profile(), weekStart: MON, weeksSinceDeload: 1, from: '2026-10-14',
+      done: [{ ...done[0], muscleSets: { chest: 16, back: 8, front_delt: 4 } }],
+    })
+    expect(chestSets(many)).toBeLessThan(chestSets(fresh))
+    expect(chestSets(many) + 16).toBeLessThanOrEqual(16 * 1.25)
   })
 
   it('前の週のその枠の実際のセット数から増減する（楽が続けば上限まで積み上がる）', () => {
@@ -206,5 +213,82 @@ describe('buildSkeleton', () => {
       expect(x.sets).toBeGreaterThanOrEqual(2)
       expect(x.sets).toBeLessThanOrEqual(4)
     }
+  })
+
+  describe('セット数の配り方（複数関節を優先、ふくらはぎ・腹は少なめ）', () => {
+    const beginner = profile({ experience: 'none', goal: 'hypertrophy', daysPerWeek: 4, minutesPerSession: 60, weekdays: [1, 2, 4, 5] })
+    const isSmall = (x: { patterns: string[] }) => x.patterns[0] === 'calf' || x.patterns[0] === 'core'
+    /** その部位を主に使う枠のセット数（補助は数えない） */
+    const direct = (sk: Skeleton, m: 'chest' | 'back') =>
+      allSlots(sk).filter((x) => PATTERN_MUSCLES[x.patterns[0]].primary.includes(m)).reduce((a, x) => a + x.sets, 0)
+
+    it('報告された例：初心者・筋肥大・週4日60分 → 上半身の複数関節は3セット、ふくらはぎ・腹は3セット以下、胸・背中は8〜12', () => {
+      const s = buildSkeleton({ profile: beginner, weekStart: MON, weeksSinceDeload: 1 })
+      expect(s.split).toBe('upper_lower')
+      for (const d of s.days.filter((x) => x.dayType === 'upper')) {
+        for (const x of d.slots.filter((y) => y.compound)) expect(x.sets, `${d.date} ${x.slot}`).toBe(3)
+      }
+      for (const x of allSlots(s).filter(isSmall)) expect(x.sets, x.slot).toBeLessThanOrEqual(3)
+      const sets = estimateMuscleSets(allSlots(s))
+      expect(sets.chest).toBeGreaterThanOrEqual(8)
+      expect(sets.chest).toBeLessThanOrEqual(12)
+      expect(direct(s, 'back')).toBeGreaterThanOrEqual(8)
+      expect(direct(s, 'back')).toBeLessThanOrEqual(12)
+      // ヒンジ系の補助（0.5）を足しても上限の1.25倍まで
+      expect(sets.back).toBeLessThanOrEqual(12 * 1.25)
+      // ふくらはぎ・腹は小さい目標（初心者 4〜6）
+      expect(sets.calves).toBeGreaterThanOrEqual(4)
+      expect(sets.calves).toBeLessThanOrEqual(6)
+      expect(sets.abs).toBeGreaterThanOrEqual(4)
+      expect(sets.abs).toBeLessThanOrEqual(6)
+      for (const total of daySets(s)) expect(total).toBeLessThanOrEqual(20)
+      // 各日、複数関節の枠のセット数は、ふくらはぎ・腹の枠より少なくない
+      for (const d of s.days) {
+        const minCompound = Math.min(...d.slots.filter((x) => x.compound).map((x) => x.sets))
+        for (const x of d.slots.filter(isSmall)) expect(x.sets, x.slot).toBeLessThanOrEqual(minCompound)
+      }
+    })
+
+    it('複数関節の枠は3セット、単関節の枠は2セットから始める（経験1〜3年・週4日60分）', () => {
+      const s = buildSkeleton({ profile: profile(), weekStart: MON, weeksSinceDeload: 1 })
+      for (const x of allSlots(s)) {
+        if (x.compound) expect(x.sets, x.slot).toBeGreaterThanOrEqual(3)
+        else expect(x.sets, x.slot).toBeGreaterThanOrEqual(2)
+      }
+      for (const x of allSlots(s).filter(isSmall)) expect(x.sets, x.slot).toBeLessThanOrEqual(3)
+      const sets = estimateMuscleSets(allSlots(s))
+      // 小さい目標（1〜3年 5〜8）
+      expect(sets.calves).toBeGreaterThanOrEqual(5)
+      expect(sets.calves).toBeLessThanOrEqual(8)
+      expect(sets.abs).toBeGreaterThanOrEqual(5)
+      expect(sets.abs).toBeLessThanOrEqual(8)
+    })
+
+    it('足りない部位にセットを足すときは複数関節の枠を先にする', () => {
+      // 3年以上・75分：上半身の日に余裕があり、胸（目標12〜）が足りない
+      const s = buildSkeleton({ profile: profile({ experience: 'over_3y', minutesPerSession: 75 }), weekStart: MON, weeksSinceDeload: 1 })
+      const upper = s.days[0].slots
+      const press = upper.find((x) => x.patterns[0] === 'horizontal_push')!
+      const fly = upper.find((x) => x.patterns[0] === 'chest_isolation')!
+      expect(press.sets).toBe(4)
+      expect(press.sets).toBeGreaterThanOrEqual(fly.sets)
+    })
+
+    it('時間が足りないとき、初心者は複数関節を2セットにしてから枠を削る（経験者は枠を削る）', () => {
+      const b = buildSkeleton({ profile: { ...beginner, minutesPerSession: 45 }, weekStart: MON, weeksSinceDeload: 1 })
+      const e = buildSkeleton({ profile: profile({ minutesPerSession: 45 }), weekStart: MON, weeksSinceDeload: 1 })
+      for (const total of [...daySets(b), ...daySets(e)]) expect(total).toBeLessThanOrEqual(15)
+      expect(b.days[0].slots.filter((x) => x.compound).every((x) => x.sets === 2)).toBe(true)
+      expect(b.days[0].slots.length).toBeGreaterThan(e.days[0].slots.length)
+      expect(e.days[0].slots.filter((x) => x.compound).every((x) => x.sets >= 3)).toBe(true)
+    })
+
+    it('ふくらはぎ・腹の枠は、きつさで増やしても3セットまで', () => {
+      const s = buildSkeleton({
+        profile: profile(), weekStart: MON, weeksSinceDeload: 1,
+        slotBaseSets: { 'lower.5': 3, 'lower.6': 3 }, slotSetDelta: { 'lower.5': 1, 'lower.6': 1 },
+      })
+      for (const x of allSlots(s).filter(isSmall)) expect(x.sets, x.slot).toBeLessThanOrEqual(3)
+    })
   })
 })

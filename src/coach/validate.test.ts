@@ -156,6 +156,16 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     expect(issues[0]).toContain('多すぎ')
   })
 
+  it('ふくらはぎ・腹は小さい目標（半分）で数える', () => {
+    const p = valid()
+    for (const i of [1, 3]) p.days[i].exercises.find((x) => x.slot === 'lower.5')!.sets = 7
+    // 1〜3年の小さい目標 5〜8 → 12 を超えると多すぎ（ふつうの目標なら 24 まで）
+    const issues = check(p, skeleton, profile({ minutesPerSession: 300 }))
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toContain('ふくらはぎ')
+    expect(issues[0]).toContain('目標5〜8')
+  })
+
   it('部位ごとの週のセット数が下限の半分未満', () => {
     const p = valid()
     for (const i of [0, 2]) p.days[i].exercises = p.days[i].exercises.filter((x) => x.slot !== 'upper.1') // 胸の枠を抜く

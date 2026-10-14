@@ -4,8 +4,8 @@ import { chooseSplit, dayTypeSequence, effectiveDays, scheduleDays, SPLIT_LABELS
 import { DAY_TITLES, dayTypeMuscles, daySlots } from './templates'
 import type { DayPlan, DayType, DoneDay, Skeleton, SlotPlan, SplitType } from './types'
 import {
-  estimateMuscleSets, fitToTime, isBeginner, MAX_SLOT_SETS, maxSetsFor, MIN_SLOT_SETS, PATTERN_MUSCLES, repScheme,
-  weeklySetTarget,
+  estimateMuscleSets, fitToTime, isBeginner, isSmallSlot, LARGE_MUSCLES, maxSetsFor, MIN_SLOT_SETS, muscleSetTarget,
+  PATTERN_MUSCLES, repScheme, SMALL_MUSCLES, slotMaxSets, startSets, weeklySetTarget,
 } from './volume'
 
 /** デロード（軽めの週）を入れる間隔（設計書「7. デロード」） */
@@ -50,22 +50,18 @@ const TRAINED_MUSCLES = [...new Set(Object.values(PATTERN_MUSCLES).flatMap((pm) 
 
 const slotMuscles = (s: SlotPlan) => PATTERN_MUSCLES[s.patterns[0]]
 
-/**
- * 1セット足したとき、どの部位も cap を超えないか
- */
-function fitsCap(est: Partial<Record<Muscle, number>>, s: SlotPlan, cap: number): boolean {
-  const pm = slotMuscles(s)
-  return pm.primary.every((m) => (est[m] ?? 0) + 1 <= cap) && pm.secondary.every((m) => (est[m] ?? 0) + 0.5 <= cap)
-}
-
-/**
- * 枠ごとのセット数を決める（設計書「3. 量・回数・休憩」）。
- * 1. すべての枠を2セットから始める
- * 2. 週のセット数が下限に届かない部位を、足りない量が多い順に見て、その部位を主に使う枠
- *    （セット数が少ない枠を優先、同じなら先の枠）に1セット足す。
- *    ただし枠は4セットまで、1日は時間内、どの部位も上限の1.25倍まで。足せなくなるまで繰り返す
- */
 type MuscleSets = Partial<Record<Muscle, number>>
+type Target = [number, number]
+
+/** 部位ごとの上限の1.25倍（ふくらはぎ・腹は小さい目標の上限から） */
+const capOf = (target: Target, m: Muscle) => muscleSetTarget(target, m)[1] * OVERSHOOT
+
+/** 1セット足したとき、どの部位も上限の1.25倍を超えないか */
+function fitsCap(est: MuscleSets, s: SlotPlan, target: Target): boolean {
+  const pm = slotMuscles(s)
+  return pm.primary.every((m) => (est[m] ?? 0) + 1 <= capOf(target, m))
+    && pm.secondary.every((m) => (est[m] ?? 0) + 0.5 <= capOf(target, m))
+}
 
 /** 骨組みの見積もりに、もう終えた日のセット数を足す */
 function withDone(est: MuscleSets, done: MuscleSets): MuscleSets {
@@ -74,22 +70,68 @@ function withDone(est: MuscleSets, done: MuscleSets): MuscleSets {
   return out
 }
 
-function distributeSets(days: DayPlan[], [min, max]: [number, number], dayMax: number, done: MuscleSets) {
-  const cap = max * OVERSHOOT
-  const all = days.flatMap((d) => d.slots.map((s) => ({ s, day: d })))
+/** セットを足す部位の順：大きい部位 → ほかの部位 → ふくらはぎ・腹 */
+const tier = (m: Muscle) => (LARGE_MUSCLES.includes(m) ? 0 : SMALL_MUSCLES.includes(m) ? 2 : 1)
+/** 減らすときに先に見る枠：ふくらはぎ・腹 → 単関節 → 複数関節 */
+const trimRank = (s: SlotPlan) => (isSmallSlot(s) ? 0 : s.compound ? 2 : 1)
+
+/**
+ * 上限の1.25倍を超えた部位を減らす（複数関節の枠を3セットから始めると、お尻・背中などが重なって超えることがある）。
+ * 超えた量が多い部位から、その部位を主に使う枠を1セットずつ減らす（2セットより下にはしない）。
+ * 減らす枠は、ふくらはぎ・腹 → 単関節 → 複数関節の順、同じならセット数が多い枠・日の中で後ろの枠・後ろの日
+ * （同じ日ばかり減らさない）。
+ * ほかの部位を下限より下げてしまう枠は、ほかに減らせる枠がないときだけ使う。
+ */
+function trimOverCap(days: DayPlan[], target: Target, done: MuscleSets) {
+  const all = days.flatMap((d, day) => d.slots.map((s, i) => ({ s, i, day })))
+  for (;;) {
+    const est = withDone(estimateMuscleSets(all.map((x) => x.s)), done)
+    const over = TRAINED_MUSCLES
+      .filter((m) => (est[m] ?? 0) > capOf(target, m))
+      .sort((a, b) => (est[b] ?? 0) / capOf(target, b) - (est[a] ?? 0) / capOf(target, a))
+    let trimmed = false
+    for (const m of over) {
+      const hurts = (s: SlotPlan) => slotMuscles(s).primary.some((x) => x !== m && (est[x] ?? 0) - 1 < muscleSetTarget(target, x)[0])
+      const pick = all
+        .filter(({ s }) => slotMuscles(s).primary.includes(m) && s.sets > MIN_SLOT_SETS)
+        .sort((a, b) => Number(hurts(a.s)) - Number(hurts(b.s)) || trimRank(a.s) - trimRank(b.s)
+          || b.s.sets - a.s.sets || b.i - a.i || b.day - a.day)[0]
+      if (pick) { pick.s.sets--; trimmed = true; break }
+    }
+    if (!trimmed) return
+  }
+}
+
+/**
+ * 枠ごとのセット数を足す（設計書「3. 量・回数・休憩」）。
+ * 週のセット数が下限に届かない部位を、大きい部位 → ほかの部位 → ふくらはぎ・腹 の順（同じなら足りない割合が大きい順）に見て、
+ * その部位を主に使う枠（複数関節の枠を優先、次にセット数が少ない枠、同じなら先の枠）に1セット足す。
+ * ただし枠は4セット（ふくらはぎ・腹は3セット）まで、単関節の枠はその日の複数関節の枠のセット数（一番多いもの）まで、
+ * 1日は時間内、どの部位も上限の1.25倍まで。足せなくなるまで繰り返す。
+ * ふくらはぎ・腹は小さい目標（半分）で数える。
+ */
+function distributeSets(days: DayPlan[], target: Target, dayMax: number, done: MuscleSets) {
+  const all = days.flatMap((d) => d.slots.map((s, i) => ({ s, day: d, i })))
   const dayTotal = (d: DayPlan) => d.slots.reduce((a, s) => a + s.sets, 0)
+  /** 単関節の枠を足しても、その日の複数関節の枠（一番多いもの）より多くならないか */
+  const belowCompound = (s: SlotPlan, d: DayPlan) => {
+    const compound = d.slots.filter((x) => x.compound).map((x) => x.sets)
+    return s.compound || compound.length === 0 || s.sets < Math.max(...compound)
+  }
   for (;;) {
     const est = withDone(estimateMuscleSets(days.flatMap((d) => d.slots)), done)
+    const min = (m: Muscle) => muscleSetTarget(target, m)[0]
     const short = TRAINED_MUSCLES
-      .filter((m) => (est[m] ?? 0) < min)
-      .sort((a, b) => (est[a] ?? 0) - (est[b] ?? 0))
+      .filter((m) => (est[m] ?? 0) < min(m))
+      .sort((a, b) => tier(a) - tier(b) || (est[a] ?? 0) / min(a) - (est[b] ?? 0) / min(b))
     let added = false
     for (const m of short) {
-      const target = all
-        .filter(({ s, day }) => slotMuscles(s).primary.includes(m) && s.sets < MAX_SLOT_SETS
-          && dayTotal(day) < dayMax && fitsCap(est, s, cap))
-        .sort((a, b) => a.s.sets - b.s.sets)[0]
-      if (target) { target.s.sets++; added = true; break }
+      const pick = all
+        .filter(({ s, day }) => slotMuscles(s).primary.includes(m) && s.sets < slotMaxSets(s)
+          && dayTotal(day) < dayMax && belowCompound(s, day) && fitsCap(est, s, target))
+        .sort((a, b) => Number(b.s.compound) - Number(a.s.compound) || a.s.sets - b.s.sets
+          || a.day.date.localeCompare(b.day.date) || a.i - b.i)[0]
+      if (pick) { pick.s.sets++; added = true; break }
     }
     if (!added) return
   }
@@ -113,24 +155,23 @@ function remainingTypes(types: DayType[], done: DoneDay[]): DayType[] {
 
 /**
  * きつさによるセット数の増減。前の週のその枠のセット数（base）があればそこから、なければ配分した数から
- * 1セット増減する（2〜4の範囲。増やすのは1日の時間と週の上限の1.25倍に収まるときだけ）。
+ * 1セット増減する（2〜4の範囲、ふくらはぎ・腹は2〜3。増やすのは1日の時間と週の上限の1.25倍に収まるときだけ）。
  */
 function applySetDelta(
   days: DayPlan[], delta: BuildSkeletonArgs['slotSetDelta'], base: BuildSkeletonArgs['slotBaseSets'],
-  [, max]: [number, number], dayMax: number, done: MuscleSets,
+  target: Target, dayMax: number, done: MuscleSets,
 ) {
   if (!delta && !base) return
-  const cap = max * OVERSHOOT
   for (const day of days) {
     for (const s of day.slots) {
       const d = delta?.[s.slot] ?? 0
       const prev = base?.[s.slot]
-      const want = Math.min(MAX_SLOT_SETS, Math.max(MIN_SLOT_SETS, (prev ?? s.sets) + d))
+      const want = Math.min(slotMaxSets(s), Math.max(MIN_SLOT_SETS, (prev ?? s.sets) + d))
       while (s.sets > want) s.sets--
       while (s.sets < want) {
         const total = day.slots.reduce((a, x) => a + x.sets, 0)
         const est = withDone(estimateMuscleSets(days.flatMap((x) => x.slots)), done)
-        if (total >= dayMax || !fitsCap(est, s, cap)) break
+        if (total >= dayMax || !fitsCap(est, s, target)) break
         s.sets++
       }
     }
@@ -140,7 +181,8 @@ function applySetDelta(
 /**
  * 1週間分の骨組み（分割法・日付ごとの日の種類・枠・セット数・回数・休憩）を作る。
  * 設計書「メニューの決め方 1〜3・7」。
- * 順番：分割法 → 日の並び（48時間ルール） → 枠（2セットずつ） → 時間に収める → セット数を配る
+ * 順番：分割法 → 日の並び（48時間ルール） → 枠（複数関節3・単関節2セット） → 時間に収める
+ * → 上限を超えた部位を減らす → 足りない部位に足す
  * → きつさによる増減 → デロード（6週ごと、または疲れのサインがあるとき）なら半分。
  */
 export function buildSkeleton({
@@ -195,13 +237,14 @@ export function buildSkeleton({
     const slots: SlotPlan[] = daySlots(dayType, variant).map((t, i) => ({
       slot: t.slot,
       patterns: t.patterns,
-      sets: MIN_SLOT_SETS,
+      sets: startSets(t),
       ...repScheme(goal, experience, t.compound, i === 0),
       compound: t.compound,
     }))
-    return { date, dayType, title: DAY_TITLES[dayType], slots: fitToTime(slots, profile.minutesPerSession) }
+    return { date, dayType, title: DAY_TITLES[dayType], slots: fitToTime(slots, profile.minutesPerSession, { beginner: isBeginner(experience) }) }
   })
 
+  trimOverCap(days, target, doneSets)
   distributeSets(days, target, dayMax, doneSets)
   applySetDelta(days, slotSetDelta, slotBaseSets, target, dayMax, doneSets)
 

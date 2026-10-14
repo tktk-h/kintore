@@ -6,6 +6,10 @@ export const MINUTES_PER_SET = 3
 /** 1種目のセット数（設計書「3. 量・回数・休憩」） */
 export const MIN_SLOT_SETS = 2
 export const MAX_SLOT_SETS = 4
+/** 複数関節の枠のはじめのセット数（単関節の枠は MIN_SLOT_SETS） */
+export const COMPOUND_START_SETS = 3
+/** ふくらはぎ・腹の枠のセット数の上限 */
+export const MAX_SMALL_SLOT_SETS = 3
 
 /**
  * 動きの種類ごとの代表的な部位。骨組みの段階（種目が決まる前）で
@@ -66,17 +70,52 @@ export function weeklySetTarget(experience: Experience): [number, number] {
   return [12, 20]
 }
 
+/** 週のセット数の目標を半分にする小さい部位（ふくらはぎ・腹） */
+export const SMALL_MUSCLES: readonly Muscle[] = ['calves', 'abs']
+/** セットを足すときに先に見る大きい部位 */
+export const LARGE_MUSCLES: readonly Muscle[] = ['chest', 'back', 'quads', 'hamstrings', 'glutes']
+
+/** 部位ごとの週のセット数の目標。ふくらはぎ・腹は半分（切り上げ。例：初心者 8〜12 → 4〜6） */
+export function muscleSetTarget(target: [number, number], muscle: Muscle): [number, number] {
+  return SMALL_MUSCLES.includes(muscle) ? [Math.ceil(target[0] / 2), Math.ceil(target[1] / 2)] : target
+}
+
+/** ふくらはぎ・腹だけを主に使う枠か */
+export function isSmallSlot(s: Pick<SlotPlan, 'patterns'>): boolean {
+  const primary = PATTERN_MUSCLES[s.patterns[0]]?.primary ?? []
+  return primary.length > 0 && primary.every((m) => SMALL_MUSCLES.includes(m))
+}
+
+/** 枠のセット数の上限（ふくらはぎ・腹は3、ほかは4） */
+export const slotMaxSets = (s: Pick<SlotPlan, 'patterns'>) => (isSmallSlot(s) ? MAX_SMALL_SLOT_SETS : MAX_SLOT_SETS)
+
+/** 枠のはじめのセット数（複数関節3、単関節2） */
+export const startSets = (s: Pick<SlotPlan, 'compound'>) => (s.compound ? COMPOUND_START_SETS : MIN_SLOT_SETS)
+
 /** 1日に入るセット数（1セット3分） */
 export const maxSetsFor = (minutes: number) => Math.max(1, Math.floor(minutes / MINUTES_PER_SET))
 
 /**
- * 1回の時間に収まるように後ろの枠から削る（設計書「2. 日ごとの枠」）。
- * 最初の枠だけでも収まらないときは、その枠のセット数を減らす（最低1）。
+ * 1回の時間に収まるように削る（設計書「2. 日ごとの枠」「3. 量・回数・休憩」）。
+ * 1. 単関節・ふくらはぎ・腹の枠のセット数を2まで減らす（ふくらはぎ・腹が先、後ろの枠が先）
+ * 2. 複数関節の枠を3まで減らす。初心者だけはさらに2まで減らしてよい
+ * 3. それでも収まらなければ後ろの枠から削る
+ * 4. 最初の枠だけでも収まらないときは、その枠のセット数を減らす（最低1）
  */
-export function fitToTime(slots: SlotPlan[], minutes: number): SlotPlan[] {
+export function fitToTime(slots: SlotPlan[], minutes: number, opts: { beginner?: boolean } = {}): SlotPlan[] {
   const max = maxSetsFor(minutes)
   const out = slots.map((s) => ({ ...s }))
   const total = () => out.reduce((a, s) => a + s.sets, 0)
+  const floor = (s: SlotPlan) => (s.compound && !opts.beginner ? COMPOUND_START_SETS : MIN_SLOT_SETS)
+  const rank = (s: SlotPlan) => (isSmallSlot(s) ? 0 : s.compound ? 2 : 1)
+  while (total() > max) {
+    const i = out
+      .map((_, i) => i)
+      .filter((i) => out[i].sets > floor(out[i]))
+      .sort((a, b) => rank(out[a]) - rank(out[b]) || out[b].sets - out[a].sets || b - a)[0]
+    if (i === undefined) break
+    out[i].sets--
+  }
   while (out.length > 1 && total() > max) out.pop()
   if (out.length === 1 && out[0].sets > max) out[0].sets = max
   return out
