@@ -6,28 +6,13 @@ import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { Dialog } from '../../components/Dialog'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { SPLIT_LABELS } from '../../coach/split'
-import type { ProposalExercise } from '../../coach/types'
-import { MUSCLE_LABELS, MUSCLES, type ChatMessage, type Exercise, type PlannedWorkout } from '../../db/types'
+import { MUSCLE_LABELS, MUSCLES, type ChatMessage, type PlannedWorkout } from '../../db/types'
 import { formatDateJa, todayKey } from '../../lib/dates'
 import { ALL_PAST_MESSAGE, applicableDays, applyProposal } from '../../repo/applyProposal'
 import { listExercises } from '../../repo/exercises'
 import { getPlanForDate } from '../../repo/plans'
-
-/** 休憩時間の表示：90秒、2分、2分30秒 */
-export function formatRest(sec: number): string {
-  if (sec < 60) return `${sec}秒`
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return s === 0 ? `${m}分` : `${m}分${s}秒`
-}
-
-/** 「3×8 ・ 60kg ・ 休憩2分」 */
-function exerciseLine(x: ProposalExercise, ex: Exercise | undefined): string {
-  const parts = [ex?.logType === 'time_distance' ? `${x.sets}セット` : `${x.sets}×${x.reps}`]
-  if (x.weight !== undefined && ex?.logType !== 'time_distance') parts.push(`${x.weight}kg`)
-  parts.push(`休憩${formatRest(x.restSec)}`)
-  return parts.join(' ・ ')
-}
+import { ProposalExerciseSheet } from './ProposalExerciseSheet'
+import { exerciseLine } from './proposalFormat'
 
 /** チャットのメニュー案カード（設計書「メニュー案カード」） */
 export function ProposalCard({ message }: { message: ChatMessage }) {
@@ -38,6 +23,8 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
   const toast = useToast()
   const [replacing, setReplacing] = useState<PlannedWorkout[]>()
   const [busy, setBusy] = useState(false)
+  /** 詳細を開いている種目（日・種目の番号） */
+  const [detail, setDetail] = useState<{ day: number; ex: number }>()
   const applied = message.appliedAt !== undefined
   const splitLabel = SPLIT_LABELS[proposal.split]
   // 過ぎた日は反映しない（すべて過ぎた日なら反映できない）
@@ -82,19 +69,23 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
         <span>{splitLabel}</span>
         {proposal.deload && <span className="proposal-badge">軽めの週</span>}
       </p>
-      {proposal.days.map((d) => (
+      {proposal.days.map((d, di) => (
         <section key={d.date} className="proposal-day" aria-label={`${formatDateJa(d.date)} ${d.title}`}>
           <h3 className="proposal-day-head">
             <span className="num">{formatDateJa(d.date)}</span>
             <span className="proposal-day-title">{d.title}</span>
           </h3>
           <ul className="proposal-exercises">
-            {d.exercises.map((x) => {
+            {d.exercises.map((x, xi) => {
               const ex = byId.get(x.exerciseId)
+              const name = exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')
+              const line = exerciseLine(x, ex)
               return (
-                <li key={`${x.slot}-${x.exerciseId}`}>
-                  <span className="proposal-ex-name">{exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')}</span>
-                  <span className="proposal-ex-meta num">{exerciseLine(x, ex)}</span>
+                <li key={`${x.slot}-${xi}`}>
+                  <button type="button" className="proposal-ex" aria-label={`${name} ${line}`} onClick={() => setDetail({ day: di, ex: xi })}>
+                    <span className="proposal-ex-name">{name}</span>
+                    <span className="proposal-ex-meta num">{line}</span>
+                  </button>
                 </li>
               )
             })}
@@ -160,6 +151,16 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
             反映する
           </button>
         </>
+      )}
+      {detail && exercises && proposal.days[detail.day]?.exercises[detail.ex] && (
+        <ProposalExerciseSheet
+          key={`${detail.day}-${detail.ex}`}
+          message={message}
+          dayIndex={detail.day}
+          exIndex={detail.ex}
+          catalog={exercises}
+          onClose={() => setDetail(undefined)}
+        />
       )}
       {replacing && (
         <Dialog title="予定を置き換えますか？" onClose={() => setReplacing(undefined)}>
