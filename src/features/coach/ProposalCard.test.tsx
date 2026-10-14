@@ -69,7 +69,7 @@ describe('メニュー案の種目の詳細と編集', () => {
     const { m, card } = await setup()
     const bench = m.proposal!.days[0].exercises[0]
     const row = await benchRow(card)
-    expect(row).toHaveAccessibleName(`ベンチプレス ${bench.sets}×${bench.reps} ・ 100kg ・ 休憩2分30秒`)
+    expect(row).toHaveAccessibleName(`ベンチプレス ${bench.reps}×${bench.sets} ・ 100kg ・ 休憩2分30秒`)
   })
 
   it('詳細を見て、セット数と重さを変えて保存すると、カードに出て、反映した予定にも入る', async () => {
@@ -108,7 +108,7 @@ describe('メニュー案の種目の詳細と編集', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const row = await benchRow(card)
-    await waitFor(() => expect(row).toHaveAccessibleName(`ベンチプレス ${bench.sets + 1}×${bench.reps} ・ 65kg ・ 休憩2分30秒`))
+    await waitFor(() => expect(row).toHaveAccessibleName(`ベンチプレス ${bench.reps}×${bench.sets + 1} ・ 65kg ・ 休憩2分30秒`))
     // 部位ごとの週のセット数も数え直す
     expect(within(card).getByText('胸').parentElement).toHaveTextContent(`胸 ${chestBefore + 1}`)
     const saved = (await db.chatMessages.get(m.id))!.proposal!
@@ -148,7 +148,7 @@ describe('メニュー案の種目の詳細と編集', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     const row = (await within(card).findAllByRole('button', { name: /^ダンベルプレス / }))[0]
     // 筋肥大・1〜3年のメイン（6〜10回・150秒）。セット数はそのまま
-    expect(row).toHaveAccessibleName(`ダンベルプレス ${bench.sets}×6 ・ 10kg ・ 休憩2分30秒`)
+    expect(row).toHaveAccessibleName(`ダンベルプレス 6×${bench.sets} ・ 10kg ・ 休憩2分30秒`)
     const saved = (await db.chatMessages.get(m.id))!.proposal!.days[0].exercises[0]
     expect(saved).toMatchObject({ exerciseId: 'ex-dumbbell-press', slot: bench.slot, repRange: [6, 10], weight: 10 })
   })

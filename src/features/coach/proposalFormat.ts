@@ -9,9 +9,9 @@ export function formatRest(sec: number): string {
   return s === 0 ? `${m}分` : `${m}分${s}秒`
 }
 
-/** 「3×8 ・ 60kg ・ 休憩2分」 */
+/** 「8×3 ・ 60kg ・ 休憩2分」（回数×セット数） */
 export function exerciseLine(x: ProposalExercise, ex: Exercise | undefined): string {
-  const parts = [ex?.logType === 'time_distance' ? `${x.sets}セット` : `${x.sets}×${x.reps}`]
+  const parts = [ex?.logType === 'time_distance' ? `${x.sets}セット` : `${x.reps}×${x.sets}`]
   if (x.weight !== undefined && ex?.logType !== 'time_distance') parts.push(`${x.weight}kg`)
   parts.push(`休憩${formatRest(x.restSec)}`)
   return parts.join(' ・ ')
