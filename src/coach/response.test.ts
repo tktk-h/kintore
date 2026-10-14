@@ -61,7 +61,7 @@ describe('toProposal', () => {
     }
     const skeleton = buildSkeleton({ profile, weekStart: '2026-10-19', weeksSinceDeload: 1 })
     const reply = parseCoachReply(valid)
-    const p = toProposal(reply.proposal!, skeleton, seedExercises())
+    const p = toProposal(reply.proposal!, skeleton, seedExercises(), profile)
     expect(p.split).toBe('upper_lower')
     expect(p.issues).toEqual([])
     expect(p.days[0].note).toBe('メモ')
@@ -77,6 +77,45 @@ describe('toProposal', () => {
     }
     const skeleton = buildSkeleton({ profile, weekStart: '2026-10-19', weeksSinceDeload: 1 })
     const reply = parseCoachReply({ ...valid, proposal: { ...valid.proposal, split: 'ppl' } })
-    expect(toProposal(reply.proposal!, skeleton, seedExercises()).split).toBe('upper_lower')
+    expect(toProposal(reply.proposal!, skeleton, seedExercises(), profile).split).toBe('upper_lower')
+  })
+})
+
+describe('toProposal：回数の幅と休憩は選んだ種目で決める', () => {
+  const base: Profile = {
+    id: 'me', goal: 'hypertrophy', experience: 'none', daysPerWeek: 4, minutesPerSession: 60,
+    weekdays: [1, 2, 4, 5], equipment: ['gym_free', 'gym_machine'], injuries: '', baselines: [], updatedAt: 0,
+  }
+  const reply = (date: string, exercises: { slot: string; exerciseId: string }[]) => parseCoachReply({
+    message: 'ok',
+    proposal: {
+      split: 'upper_lower', reasons: 'r',
+      days: [{ date, title: '下半身', exercises: exercises.map((x) => ({ ...x, sets: 2, reps: 8, restSec: 120 })) }],
+    },
+  }).proposal!
+
+  it('複数関節の枠に単関節の種目（レッグエクステンション）を入れたら、単関節の回数と休憩にする', () => {
+    const skeleton = buildSkeleton({ profile: base, weekStart: '2026-10-19', weeksSinceDeload: 1 })
+    const lower = skeleton.days.find((d) => d.dayType === 'lower')!
+    expect(lower.slots[2]).toMatchObject({ slot: 'lower.3', compound: true, repRange: [8, 12] })
+    const p = toProposal(reply(lower.date, [
+      { slot: 'lower.1', exerciseId: 'ex-squat' },
+      { slot: 'lower.3', exerciseId: 'ex-leg-extension' },
+    ]), skeleton, seedExercises(), base)
+    expect(p.days[0].exercises[0]).toMatchObject({ repRange: [8, 12], restSec: 150 })
+    expect(p.days[0].exercises[1]).toMatchObject({ repRange: [10, 15], restSec: 75 })
+  })
+
+  it('筋力アップ：各日の最初の枠の複数関節の種目はメインの回数、単関節ならメインにしない', () => {
+    const profile: Profile = { ...base, goal: 'strength', experience: 'y1_3' }
+    const skeleton = buildSkeleton({ profile, weekStart: '2026-10-19', weeksSinceDeload: 1 })
+    const lower = skeleton.days.find((d) => d.dayType === 'lower')!
+    const main = toProposal(reply(lower.date, [{ slot: 'lower.1', exerciseId: 'ex-squat' }]), skeleton, seedExercises(), profile)
+    expect(main.days[0].exercises[0]).toMatchObject({ repRange: [3, 6], restSec: 240 })
+    const iso = toProposal(reply(lower.date, [{ slot: 'lower.1', exerciseId: 'ex-leg-extension' }]), skeleton, seedExercises(), profile)
+    expect(iso.days[0].exercises[0]).toMatchObject({ repRange: [10, 12], restSec: 75 })
+    // 2つ目の枠の複数関節はメインではない
+    const second = toProposal(reply(lower.date, [{ slot: 'lower.2', exerciseId: 'ex-romanian-deadlift' }]), skeleton, seedExercises(), profile)
+    expect(second.days[0].exercises[0]).toMatchObject({ repRange: [6, 10], restSec: 120 })
   })
 })

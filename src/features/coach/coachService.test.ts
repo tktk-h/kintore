@@ -86,6 +86,23 @@ describe('askCoach', () => {
     expect(chat.map((c) => [c.role, c.text.slice(0, 6)])).toEqual([['user', '来週のメニュ'], ['coach', '来週のメニュ']])
   })
 
+  it('複数関節の枠に単関節の種目を選んだら、回数・休憩は種目に合わせ、初めての種目は幅の下限から', async () => {
+    const r = goodReply()
+    const lower = r.proposal!.days[1]
+    const x = lower.exercises.find((e) => e.slot === 'lower.3')!
+    x.exerciseId = 'ex-leg-extension'
+    x.reps = 11
+    x.restSec = 120
+    const send = vi.fn(async () => r)
+    const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send })
+    const got = m.proposal!.days[1].exercises.find((e) => e.slot === 'lower.3')!
+    // 筋肥大・1〜3年の単関節：10〜15回・75秒。記録がないので下限の10回、単関節は5kg
+    expect(got).toMatchObject({ exerciseId: 'ex-leg-extension', repRange: [10, 15], restSec: 75, reps: 10, weight: 5 })
+    for (const d of m.proposal!.days) {
+      for (const e of d.exercises) expect(e.reps, e.exerciseId).toBe(e.repRange[0])
+    }
+  })
+
   it('1回目が不正なら問題の文をつけて作り直しを頼み、2回目を採用する', async () => {
     const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>()
       .mockResolvedValueOnce(badReply())

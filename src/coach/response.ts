@@ -1,7 +1,7 @@
-import type { Exercise } from '../db/types'
+import type { Exercise, Profile } from '../db/types'
 import type { CoachReplyProposal, ReplySplit } from '../../api/_lib/schema'
-import type { Proposal, Skeleton, SplitType } from './types'
-import { countMuscleSets } from './volume'
+import type { Proposal, Skeleton, SlotPlan, SplitType } from './types'
+import { countMuscleSets, repScheme } from './volume'
 
 export { parseCoachReply, PARSE_ERROR_MESSAGE } from '../../api/_lib/schema'
 export type { CoachReply, CoachReplyProposal } from '../../api/_lib/schema'
@@ -13,25 +13,51 @@ void splitTypesMatch
 
 /**
  * AIのメニュー案をアプリのメニュー案にする（重さはまだ入れない）。
- * 回数の幅は骨組みの枠から取る（同じ日の同じ枠、なければ同じIDの枠、どちらもなければ AI の回数だけ）。
+ * 回数の幅と休憩は、選んだ種目が複数関節かどうか（種目の compound）で repScheme から決め直す
+ * （複数関節の枠に単関節の種目が入っても単関節の回数・休憩にする）。メインになるのは、骨組みの日の最初の枠に
+ * 複数関節の種目を入れたときだけ。枠は同じ日の同じ枠、なければ同じIDの枠から探す。
+ * 種目が候補にないときは枠の値、枠もなければ AI の回数・休憩をそのまま使う。
  * 分割法はアプリが決めた骨組みのものにする（AIが違う分割法を名乗っても表示しない）。
  */
-export function toProposal(p: CoachReplyProposal, skeleton: Skeleton, catalog: Exercise[]): Proposal {
-  const slotOf = (date: string, slot: string) =>
-    skeleton.days.find((d) => d.date === date)?.slots.find((s) => s.slot === slot)
-    ?? skeleton.days.flatMap((d) => d.slots).find((s) => s.slot === slot)
+export function toProposal(
+  p: CoachReplyProposal, skeleton: Skeleton, catalog: Exercise[], profile: Pick<Profile, 'goal' | 'experience'>,
+): Proposal {
+  const byId = new Map(catalog.map((e) => [e.id, e]))
+  const slotOf = (date: string, slot: string): { plan: SlotPlan; first: boolean } | undefined => {
+    const day = skeleton.days.find((d) => d.date === date)
+    const i = day?.slots.findIndex((s) => s.slot === slot) ?? -1
+    if (day && i >= 0) return { plan: day.slots[i], first: i === 0 }
+    for (const d of skeleton.days) {
+      const j = d.slots.findIndex((s) => s.slot === slot)
+      if (j >= 0) return { plan: d.slots[j], first: j === 0 }
+    }
+    return undefined
+  }
+  const scheme = (date: string, slotId: string, exerciseId: string, reps: number, restSec: number) => {
+    const slot = slotOf(date, slotId)
+    const ex = byId.get(exerciseId)
+    if (slot && ex) {
+      const compound = ex.compound ?? slot.plan.compound
+      return repScheme(profile.goal, profile.experience, compound, compound && slot.first)
+    }
+    if (slot) return { repRange: slot.plan.repRange, restSec: slot.plan.restSec }
+    return { repRange: [reps, reps] as [number, number], restSec }
+  }
   const days = p.days.map((d) => ({
     date: d.date,
     title: d.title,
     ...(d.note ? { note: d.note } : {}),
-    exercises: d.exercises.map((x) => ({
-      slot: x.slot,
-      exerciseId: x.exerciseId,
-      sets: x.sets,
-      reps: x.reps,
-      restSec: x.restSec,
-      repRange: slotOf(d.date, x.slot)?.repRange ?? ([x.reps, x.reps] as [number, number]),
-    })),
+    exercises: d.exercises.map((x) => {
+      const { repRange, restSec } = scheme(d.date, x.slot, x.exerciseId, x.reps, x.restSec)
+      return {
+        slot: x.slot,
+        exerciseId: x.exerciseId,
+        sets: x.sets,
+        reps: x.reps,
+        restSec,
+        repRange: [repRange[0], repRange[1]] as [number, number],
+      }
+    }),
   }))
   return {
     split: skeleton.split,

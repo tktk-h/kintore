@@ -136,7 +136,7 @@ function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefine
     || (ctx.intent === 'chat' && ctx.thisWeek !== undefined && reply.proposal.days.some((d) => d.date < addDays(thisMonday, 7)))
   const { inputs, skeleton } = forThisWeek && ctx.thisWeek ? ctx.thisWeek : ctx
   const earliest = forThisWeek ? ctx.from : undefined
-  const base = { ...toProposal(reply.proposal, skeleton, inputs.catalog), deload: skeleton.deload }
+  const base = { ...toProposal(reply.proposal, skeleton, inputs.catalog, ctx.profile), deload: skeleton.deload }
   const { proposal, notes } = applyLoads(base, inputs, ctx.profile, inputs.catalog)
   return { proposal, issues: check(proposal, skeleton, inputs, ctx.profile, earliest), notes }
 }
