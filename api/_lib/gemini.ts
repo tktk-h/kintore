@@ -71,10 +71,22 @@ function versionOf(name: string): number {
  * lite・音声・画像・試験版などは除く
  */
 export function flashModels(list: ModelList): string[] {
+  return flashFamily(list, false)
+}
+
+/**
+ * 上限（429）のときに試す順：Flash モデル（新しい順）、そのあと最後の手段として Flash-Lite モデル（新しい順）。
+ * モデルごとに無料枠の1日の上限が別なので、ほかのモデルなら通ることがある
+ */
+export function rateLimitFallbacks(list: ModelList): string[] {
+  return [...flashFamily(list, false), ...flashFamily(list, true)]
+}
+
+function flashFamily(list: ModelList, lite: boolean): string[] {
   const names = (list.models ?? [])
     .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
     .map((m) => (m.name ?? '').replace(/^models\//, ''))
-    .filter((n) => /flash/.test(n) && !/(lite|tts|audio|image|live|exp|thinking|embedding)/.test(n))
+    .filter((n) => /flash/.test(n) && /lite/.test(n) === lite && !/(tts|audio|image|live|exp|thinking|embedding)/.test(n))
   return names.sort((a, b) => versionOf(b) - versionOf(a) || a.length - b.length)
 }
 
@@ -120,11 +132,26 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
     if (older) {
       console.error(`coach: model ${model} still busy, trying ${older}`)
       await sleep(delay)
-      res = await generate(args, older)
+      model = older
+      res = await generate(args, model)
     }
   }
-  if (isBusy(res.status)) throw new GeminiError('busy', res.status, await errorDetail(res, apiKey))
 
+  // 上限（429）なら、ほかの Flash モデル（最後に Flash-Lite）を順に試す。モデルごとに無料枠の上限が別なため。
+  // 通ったモデルは覚えておき、同じインスタンスの次の呼び出しでは最初からそれを使う
+  if (res.status === 429) {
+    const tried = new Set([args.model, model])
+    const candidates = rateLimitFallbacks(await listModels(apiKey)).filter((m) => !tried.has(m))
+    for (const next of candidates) {
+      console.error(`coach: model ${model} rate limited, trying ${next}`)
+      model = next
+      res = await generate(args, model)
+      if (res.status !== 429 && !isBusy(res.status)) break
+    }
+    if (res.ok) resolvedModels.set(args.model, model)
+  }
+
+  if (isBusy(res.status)) throw new GeminiError('busy', res.status, await errorDetail(res, apiKey))
   if (res.status === 429) throw new GeminiError('rate_limited', 429, await errorDetail(res, apiKey))
   if (!res.ok) throw new GeminiError('upstream', res.status, await errorDetail(res, apiKey))
 
@@ -137,7 +164,10 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('')
   if (!text) throw new GeminiError('invalid', undefined, 'empty reply')
   try {
-    return parseCoachReply(text)
+    const reply = parseCoachReply(text)
+    // どのモデルが答えたかを残す（上限で切り替えたときの確認用。キー・本文は出さない）
+    console.log(`coach: answered by ${model}`)
+    return reply
   } catch {
     throw new GeminiError('invalid', undefined, 'reply does not match the schema')
   }
@@ -171,17 +201,6 @@ async function generate({ apiKey, system, context, messages, thinkingBudget }: C
   return res.status === 400 && withThinking ? post(false) : res
 }
 
-/** 使えるモデルの一覧から Flash モデルを新しい順に取る。取れなければ空 */
-async function listFlashModels(apiKey: string): Promise<string[]> {
-  const res = await send(`${API_BASE}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } })
-  if (!res.ok) return []
-  try {
-    return flashModels((await res.json()) as ModelList)
-  } catch {
-    return []
-  }
-}
-
 /** fetch の失敗（通信・ヘッダーの形など）は、種類だけを持った GeminiError にする（メッセージにはキーが入りうる） */
 async function send(url: string, init: RequestInit): Promise<Response> {
   try {
@@ -190,4 +209,20 @@ async function send(url: string, init: RequestInit): Promise<Response> {
     const name = e instanceof Error ? e.name : typeof e
     throw new GeminiError('upstream', undefined, `fetch failed (${name})`)
   }
+}
+
+/** 使えるモデルの一覧。取れなければ空 */
+async function listModels(apiKey: string): Promise<ModelList> {
+  const res = await send(`${API_BASE}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } })
+  if (!res.ok) return {}
+  try {
+    return (await res.json()) as ModelList
+  } catch {
+    return {}
+  }
+}
+
+/** 使えるモデルの一覧から Flash モデルを新しい順に取る。取れなければ空 */
+async function listFlashModels(apiKey: string): Promise<string[]> {
+  return flashModels(await listModels(apiKey))
 }

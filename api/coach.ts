@@ -33,7 +33,7 @@ export const MESSAGES = {
   unauthorized: '合言葉が違います',
   config: 'サーバーの設定が足りません',
   badRequest: '送る内容の形が違います',
-  rateLimited: '今日は上限に達しました。時間をおいて試してください',
+  rateLimited: '無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます',
   upstream: 'AIの呼び出しに失敗しました。時間をおいて試してください',
   busy: 'AIが混み合っています。少し時間をおいて試してください',
   invalid: 'AIの返事を読み取れませんでした',

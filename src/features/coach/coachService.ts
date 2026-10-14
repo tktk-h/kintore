@@ -5,7 +5,7 @@ import { toProposal } from '../../coach/response'
 import { buildSkeleton } from '../../coach/skeleton'
 import type { DoneDay, Proposal, Skeleton } from '../../coach/types'
 import { countMuscleSets } from '../../coach/volume'
-import { checkProposal } from '../../coach/validate'
+import { checkProposalIssues } from '../../coach/validate'
 import type { ChatMessage, Exercise, Profile } from '../../db/types'
 import { addDays, mondayOf, todayKey } from '../../lib/dates'
 import { addChatMessage } from '../../repo/chat'
@@ -94,7 +94,11 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
 }
 
 
-interface Finalized { proposal: Proposal; issues: string[]; notes: string[] }
+interface Finalized {
+  proposal: Proposal; issues: string[]; notes: string[]
+  /** 作り直しを頼むほどの問題の数（ProposalIssue.serious） */
+  serious: number
+}
 
 /**
  * 普通のチャットの案は、日付が今週なら今週（今日以降）の骨組みで、そうでなければ来週の骨組みでチェックする
@@ -118,14 +122,16 @@ function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefine
     ...toProposal(reply.proposal, skeleton, inputs.catalog, ctx.profile), deload: skeleton.deload, skeleton, ...(earliest ? { earliest } : {}),
   }
   const { proposal, notes } = applyLoads(base, inputs, ctx.profile, inputs.catalog)
-  return { proposal, issues: checkProposal(proposal, skeleton, inputs.catalog, ctx.profile, earliest), notes }
+  const found = checkProposalIssues(proposal, skeleton, inputs.catalog, ctx.profile, earliest)
+  return { proposal, issues: found.map((i) => i.text), notes, serious: found.filter((i) => i.serious).length }
 }
 
 /**
  * AIコーチに相談する（設計書「AIとのやりとり」）。
  * 1. 記録を集めて骨組みを作り、AIに渡す情報を組み立てて送る
  * 2. 返事にメニュー案があれば、重さと回数を計算してチェックする
- * 3. 問題があれば、問題の文をつけて1回だけ作り直してもらう。まだ問題があれば issues に入れる
+ * 3. 作り直しを頼むほどの問題（validate の ProposalIssue.serious）があれば、問題の文をつけて1回だけ作り直してもらう。
+ *    軽い問題だけなら作り直さない。残った問題は issues に入れる
  * 3'. 分割法の変更を頼まれたら（requestedSplit）、プロフィールに保存し、組み直した骨組みでもう一度案を頼む
  * 4. ユーザーのメッセージとAIの返事（メニュー案つき）を保存する
  * 送る前にユーザーのメッセージを保存するので、失敗しても消えない。同じ文で送り直したときは二重に保存しない。
@@ -170,7 +176,9 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const round = async (request: CoachRequest, ctx: FinalizeContext) => {
     let reply = await send(request, passcode)
     let result = finalize(reply, ctx)
-    if (result && result.issues.length > 0) {
+    // 作り直しは、作り直しを頼むほどの問題（候補にない種目・日付の間違い・セット数と回数の範囲外）があるときだけ。
+    // 軽い問題（1日の時間・週のセット数など）は、AIを2回呼ばずに注意点としてカードに出す（無料枠の上限に届きにくくする）
+    if (result && result.serious > 0) {
       const fix: CoachChatTurn[] = [
         ...request.messages,
         { role: 'coach', text: JSON.stringify(reply) },
@@ -179,7 +187,7 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
       try {
         const retryReply = await send({ ...request, messages: fix }, passcode)
         const retry = finalize(retryReply, ctx)
-        if (retry && retry.issues.length <= result.issues.length) {
+        if (retry && (retry.serious < result.serious || (retry.serious === result.serious && retry.issues.length <= result.issues.length))) {
           reply = retryReply
           result = retry
         }

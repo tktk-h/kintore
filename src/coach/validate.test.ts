@@ -3,7 +3,7 @@ import { seedExercises } from '../db/seedExercises'
 import type { MovementPattern, Profile } from '../db/types'
 import { buildSkeleton } from './skeleton'
 import type { Proposal, Skeleton } from './types'
-import { validateProposal } from './validate'
+import { checkProposalIssues, validateProposal } from './validate'
 
 const catalog = seedExercises()
 const profile = (p: Partial<Profile> = {}): Profile => ({
@@ -218,5 +218,41 @@ describe('validateProposal（設計書「メニュー案のチェック」）', 
     const deload = buildSkeleton({ profile: profile(), weekStart: '2026-10-12', weeksSinceDeload: 6 })
     expect(deload.deload).toBe(true)
     expect(check(proposalFor(deload), deload)).toEqual([])
+  })
+})
+
+describe('checkProposalIssues：作り直しを頼むほどの問題（serious）かどうか', () => {
+  const issuesOf = (p: Proposal, earliest?: string) => checkProposalIssues(p, skeleton, catalog, profile(), earliest)
+
+  it('候補にない種目・日付の間違い・セット数と回数の範囲外は serious', () => {
+    const p = valid()
+    p.days[0].exercises[6].exerciseId = 'ex-nope'
+    p.days[1].exercises[0].sets = 12
+    p.days[1].exercises[1].reps = 40
+    p.days[2].date = '2026-10-20' // 対象週の外（10月15日の日も抜ける）
+    const issues = issuesOf(p)
+    expect(issues.length).toBeGreaterThanOrEqual(5)
+    for (const i of issues.filter((x) => /候補にない|セット数（12）|回数（40）|対象の週|抜けています/.test(x.text))) {
+      expect(i.serious, i.text).toBe(true)
+    }
+    expect(issues.filter((x) => x.serious).length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('同じ日付が2回・骨組みの日でない・過ぎた日も serious', () => {
+    const p = valid()
+    p.days[1].date = p.days[0].date
+    expect(issuesOf(p).find((x) => x.text.includes('2回入って'))?.serious).toBe(true)
+    const past = issuesOf(valid(), '2026-10-14')
+    expect(past.filter((x) => x.text.includes('過ぎた日')).every((x) => x.serious)).toBe(true)
+    expect(past.some((x) => x.text.includes('過ぎた日'))).toBe(true)
+  })
+
+  it('1日の時間・週のセット数の外れは軽い問題（作り直しは頼まない）', () => {
+    const p = valid()
+    p.days[0].exercises[0].sets = 10
+    p.days[0].exercises[1].sets = 10
+    const issues = issuesOf(p)
+    expect(issues.some((x) => x.text.includes('1回の時間'))).toBe(true)
+    expect(issues.every((x) => !x.serious)).toBe(true)
   })
 })

@@ -5,7 +5,7 @@ export type CoachErrorKind = 'offline' | 'unauthorized' | 'rate_limited' | 'serv
 export const COACH_ERROR_MESSAGES: Record<CoachErrorKind, string> = {
   offline: '通信できません。電波のよい所でもう一度送ってください。',
   unauthorized: '合言葉が違うか、設定されていません。設定で合言葉を確認してください。',
-  rate_limited: '今日は上限に達しました。時間をおいて試してください。',
+  rate_limited: '無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます。',
   server: 'サーバーでエラーが起きました。時間をおいて試してください。',
   invalid: 'AIの返事を読み取れませんでした。もう一度送ってください。',
 }

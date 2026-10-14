@@ -170,7 +170,7 @@ describe('CoachPage', () => {
     const input = await screen.findByRole('textbox', { name: 'メッセージ' })
     await userEvent.type(input, 'ベンチのコツは？')
     await userEvent.click(screen.getByRole('button', { name: '送信' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('今日は上限に達しました')
+    expect(await screen.findByRole('alert')).toHaveTextContent('無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます')
     // 送った内容は消えない
     expect(screen.getAllByText('ベンチのコツは？').length).toBeGreaterThan(0)
     await userEvent.click(screen.getByRole('button', { name: 'もう一度送る' }))

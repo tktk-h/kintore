@@ -10,6 +10,14 @@ export const LIMITS = { sets: [1, 10], reps: [1, 30], restSec: [0, 300] } as con
 const UNDER_RATIO = 0.5
 const OVER_RATIO = 1.5
 
+/**
+ * メニュー案の問題1つ。serious は、AIに作り直しを頼むほどの問題（候補にない種目、日付の間違い・重複・抜け、
+ * セット数・回数の範囲外）。それ以外（枠の動き・48時間・1日の時間・週のセット数・休憩など）は軽い問題で、
+ * 作り直しは頼まずにカードの注意点に出すだけにする（無料枠の呼び出し回数を減らすため）
+ */
+export interface ProposalIssue { text: string; serious: boolean }
+
+
 const inRange = (v: number, [lo, hi]: readonly [number, number]) => Number.isInteger(v) && v >= lo && v <= hi
 const fmt = (n: number) => String(Math.round(n * 10) / 10)
 
@@ -27,7 +35,14 @@ const fmt = (n: number) => String(Math.round(n * 10) / 10)
  *   ふくらはぎ・腹は小さい目標（半分）で数える
  */
 export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile): string[] {
-  const issues: string[] = []
+  return validateProposalIssues(proposal, skeleton, catalog, profile).map((i) => i.text)
+}
+
+/** validateProposal の問題を、作り直しを頼むほどか（serious）の印つきで返す */
+export function validateProposalIssues(proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile): ProposalIssue[] {
+  const issues: ProposalIssue[] = []
+  const serious = (text: string) => issues.push({ text, serious: true })
+  const minor = (text: string) => issues.push({ text, serious: false })
   const byId = new Map(catalog.filter((e) => !e.deleted).map((e) => [e.id, e]))
   const weekEnd = addDays(skeleton.weekStart, 6)
 
@@ -44,19 +59,19 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
     const label = formatDateJa(day.date)
     const inWeek = day.date >= skeleton.weekStart && day.date <= weekEnd
     if (seenDates.has(day.date)) {
-      if (!duplicated.has(day.date)) issues.push(`${label}が2回入っています。1日1つにまとめてください。`)
+      if (!duplicated.has(day.date)) serious(`${label}が2回入っています。1日1つにまとめてください。`)
       duplicated.add(day.date)
     }
     seenDates.add(day.date)
     if (!inWeek) {
-      issues.push(`${label}は対象の週（${formatDateJa(skeleton.weekStart)}〜${formatDateJa(weekEnd)}）の外の日付です。`)
+      serious(`${label}は対象の週（${formatDateJa(skeleton.weekStart)}〜${formatDateJa(weekEnd)}）の外の日付です。`)
     }
     const goodWeekday = profile.weekdays.includes(parseDateKey(day.date).getDay())
     if (!goodWeekday) {
-      issues.push(`${label}は行ける曜日ではありません。`)
+      serious(`${label}は行ける曜日ではありません。`)
     }
     if (inWeek && goodWeekday && !skeletonDates.has(day.date)) {
-      issues.push(`${label}は骨組みの日ではありません。骨組みの日（${skeleton.days.map((d) => formatDateJa(d.date)).join('・')}）だけにしてください。`)
+      serious(`${label}は骨組みの日ではありません。骨組みの日（${skeleton.days.map((d) => formatDateJa(d.date)).join('・')}）だけにしてください。`)
     }
 
     const muscles = new Set<Muscle>()
@@ -64,25 +79,25 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
       const e = byId.get(x.exerciseId)
       const where = e ? `${label}の「${e.name}」` : `${label}の${i + 1}つ目の種目`
       if (!e) {
-        issues.push(`${where}は候補にない種目です。`)
+        serious(`${where}は候補にない種目です。`)
       } else {
         const slot = findSlot(day.date, x.slot)
         if (!slot) {
-          issues.push(`${where}の枠は骨組みにありません。骨組みの枠から選んでください。`)
+          minor(`${where}の枠は骨組みにありません。骨組みの枠から選んでください。`)
         } else if (!e.pattern || !slot.patterns.includes(e.pattern)) {
           const want = slot.patterns.map((p) => MOVEMENT_PATTERN_LABELS[p]).join('か')
-          issues.push(`${where}は枠の動き（${want}）に合いません。`)
+          minor(`${where}は枠の動き（${want}）に合いません。`)
         }
         if (e.pattern !== 'cardio') for (const m of e.primary ?? []) muscles.add(m)
       }
-      if (!inRange(x.sets, LIMITS.sets)) issues.push(`${where}のセット数（${x.sets}）は1〜10にしてください。`)
-      if (!inRange(x.reps, LIMITS.reps)) issues.push(`${where}の回数（${x.reps}）は1〜30にしてください。`)
-      if (!inRange(x.restSec, LIMITS.restSec)) issues.push(`${where}の休憩（${x.restSec}秒）は0〜300秒にしてください。`)
+      if (!inRange(x.sets, LIMITS.sets)) serious(`${where}のセット数（${x.sets}）は1〜10にしてください。`)
+      if (!inRange(x.reps, LIMITS.reps)) serious(`${where}の回数（${x.reps}）は1〜30にしてください。`)
+      if (!inRange(x.restSec, LIMITS.restSec)) minor(`${where}の休憩（${x.restSec}秒）は0〜300秒にしてください。`)
     }
 
     const minutes = day.exercises.reduce((a, x) => a + x.sets, 0) * MINUTES_PER_SET
     if (minutes > profile.minutesPerSession) {
-      issues.push(`${label}は合計で約${minutes}分かかり、1回の時間（${profile.minutesPerSession}分）を超えています。`)
+      minor(`${label}は合計で約${minutes}分かかり、1回の時間（${profile.minutesPerSession}分）を超えています。`)
     }
     dayMuscles.push({ date: day.date, muscles })
   }
@@ -94,7 +109,7 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
       if (b.date === d.date || Math.abs(daysBetween(d.date, b.date)) >= MIN_GAP_DAYS) continue
       const shared = MUSCLES.filter((m) => done.has(m) && b.muscles.has(m))
       if (shared.length === 0) continue
-      issues.push(`${formatDateJa(d.date)}（もう終えた日）と${formatDateJa(b.date)}は同じ部位（${shared.map((m) => MUSCLE_LABELS[m]).join('・')}）を使うのに、間が48時間未満です。`)
+      minor(`${formatDateJa(d.date)}（もう終えた日）と${formatDateJa(b.date)}は同じ部位（${shared.map((m) => MUSCLE_LABELS[m]).join('・')}）を使うのに、間が48時間未満です。`)
     }
   }
   for (let i = 0; i < dayMuscles.length; i++) {
@@ -105,13 +120,13 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
       if (Math.abs(daysBetween(a.date, b.date)) >= MIN_GAP_DAYS) continue
       const shared = MUSCLES.filter((m) => a.muscles.has(m) && b.muscles.has(m))
       if (shared.length === 0) continue
-      issues.push(`${formatDateJa(a.date)}と${formatDateJa(b.date)}は同じ部位（${shared.map((m) => MUSCLE_LABELS[m]).join('・')}）を使うのに、間が48時間未満です。`)
+      minor(`${formatDateJa(a.date)}と${formatDateJa(b.date)}は同じ部位（${shared.map((m) => MUSCLE_LABELS[m]).join('・')}）を使うのに、間が48時間未満です。`)
     }
   }
 
   // 骨組みの日が抜けていないか
   for (const d of skeleton.days) {
-    if (!seenDates.has(d.date)) issues.push(`${formatDateJa(d.date)}（${d.title}）が抜けています。骨組みのすべての日を入れてください。`)
+    if (!seenDates.has(d.date)) serious(`${formatDateJa(d.date)}（${d.title}）が抜けています。骨組みのすべての日を入れてください。`)
   }
 
   // 部位ごとの週のセット数（今週もう終えた日の分も足す）
@@ -127,9 +142,9 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
     const [min, max] = muscleSetTarget(skeleton.weeklySetTarget, m)
     const v = actual[m] ?? 0
     if (v > max * OVER_RATIO) {
-      issues.push(`${MUSCLE_LABELS[m]}の週のセット数（${fmt(v)}）が多すぎます（目標${min}〜${max}）。`)
+      minor(`${MUSCLE_LABELS[m]}の週のセット数（${fmt(v)}）が多すぎます（目標${min}〜${max}）。`)
     } else if (!skeleton.deload && (planned[m] ?? 0) >= min * UNDER_RATIO && v < min * UNDER_RATIO) {
-      issues.push(`${MUSCLE_LABELS[m]}の週のセット数（${fmt(v)}）が少なすぎます（目標${min}〜${max}）。`)
+      minor(`${MUSCLE_LABELS[m]}の週のセット数（${fmt(v)}）が少なすぎます（目標${min}〜${max}）。`)
     }
   }
 
@@ -143,10 +158,17 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
 export function checkProposal(
   proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile, earliest?: string,
 ): string[] {
-  const issues = validateProposal(proposal, skeleton, catalog, profile)
+  return checkProposalIssues(proposal, skeleton, catalog, profile, earliest).map((i) => i.text)
+}
+
+/** checkProposal の問題を、作り直しを頼むほどか（serious）の印つきで返す（過ぎた日は serious） */
+export function checkProposalIssues(
+  proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile, earliest?: string,
+): ProposalIssue[] {
+  const issues = validateProposalIssues(proposal, skeleton, catalog, profile)
   if (earliest) {
     for (const d of proposal.days) {
-      if (d.date < earliest) issues.push(`${formatDateJa(d.date)}は過ぎた日です。${formatDateJa(earliest)}以降の日にしてください。`)
+      if (d.date < earliest) issues.push({ text: `${formatDateJa(d.date)}は過ぎた日です。${formatDateJa(earliest)}以降の日にしてください。`, serious: true })
     }
   }
   return issues

@@ -128,6 +128,26 @@ describe('askCoach', () => {
     expect(m.proposal?.issues.join()).toContain('候補にない')
   })
 
+  it('軽い問題（1日の時間・週のセット数）だけなら作り直しを頼まず、注意点としてカードに出す', async () => {
+    const r = goodReply()
+    r.proposal!.days[0].exercises[0].sets = 10
+    r.proposal!.days[0].exercises[1].sets = 10
+    const send = vi.fn(async () => r)
+    const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send })
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(m.proposal?.issues.join()).toContain('1回の時間')
+  })
+
+  it('セット数・回数の範囲外は作り直しを頼む', async () => {
+    const r = goodReply()
+    r.proposal!.days[0].exercises[0].sets = 12
+    const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>().mockResolvedValueOnce(r).mockResolvedValueOnce(goodReply())
+    const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls[1][0].messages.at(-1)?.text).toContain('セット数（12）')
+    expect(m.proposal?.issues).toEqual([])
+  })
+
   it('作り直しの呼び出しが失敗しても、1回目の案を注意点つきで保存する', async () => {
     const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>()
       .mockResolvedValueOnce(badReply())

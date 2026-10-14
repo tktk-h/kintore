@@ -42,6 +42,7 @@ beforeEach(() => {
   fetchMock = vi.fn(async () => geminiOk())
   vi.stubGlobal('fetch', fetchMock)
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -122,11 +123,11 @@ describe('POST /api/coach', () => {
     expect((await POST(req({ body: JSON.stringify({ system: 'a' }) }))).status).toBe(400)
   })
 
-  it('Gemini が 429 なら 429「今日は上限に達しました…」', async () => {
+  it('Gemini が 429 で、ほかに試せるモデルもなければ 429「無料枠の1日の上限に達しました…」', async () => {
     fetchMock.mockResolvedValueOnce(gemini(429, { error: { message: 'quota' } }))
     const res = await POST(req())
     expect(res.status).toBe(429)
-    expect(await expectNoSecrets(res)).toEqual({ error: '今日は上限に達しました。時間をおいて試してください' })
+    expect(await expectNoSecrets(res)).toEqual({ error: '無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます' })
   })
 
   it('Gemini がそれ以外で失敗したら 502', async () => {
@@ -217,6 +218,64 @@ describe('POST /api/coach', () => {
       expect(res.status).toBe(503)
       expect(await expectNoSecrets(res)).toEqual({ error: 'AIが混み合っています。少し時間をおいて試してください' })
     })
+  })
+
+  describe('上限（429）のとき', () => {
+    // モデルごとに無料枠の上限が別なので、ほかの Flash モデルで試す（lite は最後の手段）
+    const list = () => gemini(200, { models: [
+      { name: 'models/gemini-4.2-flash-lite', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-4.2-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-4.1-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-4.2-flash-tts', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-4.2-pro', supportedGenerationMethods: ['generateContent'] },
+    ] })
+    const limited = () => gemini(429, { error: { message: 'quota exceeded' } })
+    const generatedModels = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.includes(':generateContent'))
+      .map((u) => /models\/([^:]+):/.exec(u)![1])
+    beforeEach(() => fetchMock.mockReset())
+
+    it('ほかの Flash モデルで送り直し、答えたモデルをログに残す', async () => {
+      env.GEMINI_MODEL = 'gemini-4.2-flash'
+      fetchMock.mockResolvedValueOnce(limited()).mockResolvedValueOnce(list()).mockResolvedValueOnce(geminiOk())
+      const res = await POST(req())
+      expect(res.status).toBe(200)
+      expect(generatedModels()).toEqual(['gemini-4.2-flash', 'gemini-4.1-flash'])
+      const logged = JSON.stringify((console.log as unknown as ReturnType<typeof vi.fn>).mock.calls)
+      expect(logged).toContain('coach: answered by gemini-4.1-flash')
+      expect(logged).not.toContain(API_KEY)
+    })
+
+    it('Flash モデルが全部上限なら、最後に lite を試す', async () => {
+      env.GEMINI_MODEL = 'gemini-4.2-flash-x'
+      fetchMock.mockResolvedValueOnce(limited()).mockResolvedValueOnce(list())
+        .mockResolvedValueOnce(limited()).mockResolvedValueOnce(limited()).mockResolvedValueOnce(geminiOk())
+      expect((await POST(req())).status).toBe(200)
+      expect(generatedModels()).toEqual(['gemini-4.2-flash-x', 'gemini-4.2-flash', 'gemini-4.1-flash', 'gemini-4.2-flash-lite'])
+    })
+
+    it('全部上限なら 429 と、1日の上限の文を返す', async () => {
+      env.GEMINI_MODEL = 'gemini-4.2-flash-y'
+      fetchMock.mockResolvedValueOnce(limited()).mockResolvedValueOnce(list()).mockResolvedValue(limited())
+      const res = await POST(req())
+      expect(res.status).toBe(429)
+      expect(await expectNoSecrets(res)).toEqual({ error: '無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます' })
+      expect(generatedModels()).toEqual(['gemini-4.2-flash-y', 'gemini-4.2-flash', 'gemini-4.1-flash', 'gemini-4.2-flash-lite'])
+    })
+
+    it('通ったモデルは覚えておき、次からは最初からそれを使う', async () => {
+      env.GEMINI_MODEL = 'gemini-4.2-flash-z'
+      fetchMock.mockResolvedValueOnce(limited()).mockResolvedValueOnce(list()).mockResolvedValueOnce(geminiOk()).mockResolvedValueOnce(geminiOk())
+      expect((await POST(req())).status).toBe(200)
+      expect((await POST(req())).status).toBe(200)
+      expect(generatedModels()).toEqual(['gemini-4.2-flash-z', 'gemini-4.2-flash', 'gemini-4.2-flash'])
+    })
+  })
+
+  it('答えたモデルをログに残す（キーは出さない）', async () => {
+    await POST(req())
+    const logged = JSON.stringify((console.log as unknown as ReturnType<typeof vi.fn>).mock.calls)
+    expect(logged).toContain('coach: answered by gemini-2.5-flash')
+    expect(logged).not.toContain(API_KEY)
   })
 
   it('関数の実行時間の上限は300秒（Hobby の最大）', () => {
