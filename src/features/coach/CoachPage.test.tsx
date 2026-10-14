@@ -169,16 +169,17 @@ describe('CoachPage', () => {
     open(send)
     const input = await screen.findByRole('textbox', { name: 'メッセージ' })
     await userEvent.type(input, 'ベンチのコツは？')
-    await userEvent.click(screen.getByRole('button', { name: '送信' }))
+    // プロフィールと合言葉の読み込みが終わって押せるようになってから押す
+    await userEvent.click(await enabledButton('送信'))
     expect(await screen.findByRole('alert')).toHaveTextContent('無料枠の1日の上限に達しました。日本時間の夕方ごろにリセットされます')
     // 送った内容は消えない
     expect(screen.getAllByText('ベンチのコツは？').length).toBeGreaterThan(0)
-    await userEvent.click(screen.getByRole('button', { name: 'もう一度送る' }))
+    await userEvent.click(await enabledButton('もう一度送る'))
     expect(await screen.findByText('フォームのコツです')).toBeInTheDocument()
-    expect(screen.queryByRole('alert')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
     expect(send).toHaveBeenCalledTimes(2)
-    expect((await listChatMessages()).map((m) => m.role)).toEqual(['user', 'coach'])
-    expect(input).toHaveValue('')
+    await waitFor(async () => expect((await listChatMessages()).map((m) => m.role)).toEqual(['user', 'coach']))
+    await waitFor(() => expect(input).toHaveValue(''))
   })
 
   it('合言葉が違うときは設定へ案内する', async () => {

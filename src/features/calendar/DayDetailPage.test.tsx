@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '../../test/user'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveBodyLog } from '../../repo/body'
@@ -65,6 +65,6 @@ describe('DayDetailPage', () => {
     expect(sheet).toHaveTextContent('休憩2分')
     expect(sheet).toHaveTextContent('水平に押す')
     expect(sheet).toHaveTextContent('胸')
-    expect(sheet).toHaveTextContent('記録なし')
+    expect(await within(sheet).findByText('記録なし')).toBeInTheDocument()
   })
 })
