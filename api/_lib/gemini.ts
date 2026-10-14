@@ -12,8 +12,8 @@ const API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
  * detail はログ用の短い理由（キーは伏せてある。アプリには返さない）
  */
 export class GeminiError extends Error {
-  constructor(public kind: 'rate_limited' | 'upstream' | 'invalid', public status?: number, public detail?: string) {
-    super(kind === 'rate_limited' ? 'rate limited' : kind === 'invalid' ? 'invalid reply' : `upstream error${status ? ` ${status}` : ''}`)
+  constructor(public kind: 'rate_limited' | 'busy' | 'upstream' | 'invalid', public status?: number, public detail?: string) {
+    super(kind === 'rate_limited' ? 'rate limited' : kind === 'busy' ? 'model busy' : kind === 'invalid' ? 'invalid reply' : `upstream error${status ? ` ${status}` : ''}`)
     this.name = 'GeminiError'
   }
 }
@@ -29,6 +29,8 @@ export interface CallGeminiArgs {
    * 対応していないモデルで 400 になったときは、外して1回だけ送り直す。
    */
   thinkingBudget?: number
+  /** 混み合っているときに送り直すまで待つ時間（ミリ秒）。既定 2000 */
+  retryDelayMs?: number
 }
 
 /** 既定の考える量。メニューは骨組みが決まっているので多くは要らない */
@@ -65,34 +67,63 @@ function versionOf(name: string): number {
 }
 
 /**
- * 使えるモデルの中から、メニュー作りに向いた Flash モデルを選ぶ。
- * lite・音声・画像・試験版などは除き、いちばん新しいものにする
+ * 使えるモデルの中から、メニュー作りに向いた Flash モデルを新しい順に並べる。
+ * lite・音声・画像・試験版などは除く
  */
-export function pickFlashModel(list: ModelList): string | undefined {
+export function flashModels(list: ModelList): string[] {
   const names = (list.models ?? [])
     .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
     .map((m) => (m.name ?? '').replace(/^models\//, ''))
     .filter((n) => /flash/.test(n) && !/(lite|tts|audio|image|live|exp|thinking|embedding)/.test(n))
-  names.sort((a, b) => versionOf(b) - versionOf(a) || a.length - b.length)
-  return names[0]
+  return names.sort((a, b) => versionOf(b) - versionOf(a) || a.length - b.length)
+}
+
+/** いちばん新しい Flash モデル */
+export function pickFlashModel(list: ModelList): string | undefined {
+  return flashModels(list)[0]
 }
 
 /** 見つからなかったモデル名 → 代わりに見つけたモデル名。同じ関数のインスタンスが続く間は探し直さない */
 const resolvedModels = new Map<string, string>()
 
+/** 混み合っている・一時的な不調のステータス（時間をおけば通ることが多い） */
+const isBusy = (status: number) => status === 503 || status === 504
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   const { apiKey } = args
-  let res = await generate(args, resolvedModels.get(args.model) ?? args.model)
+  const delay = args.retryDelayMs ?? 2000
+  let model = resolvedModels.get(args.model) ?? args.model
+  let res = await generate(args, model)
 
   // モデルが見つからない（提供が終わった・名前が違う）なら、使える Flash モデルを探して1回だけ送り直す
   if (res.status === 404) {
-    const model = await findFlashModel(apiKey)
-    if (model && model !== args.model) {
-      resolvedModels.set(args.model, model)
-      console.error(`coach: model ${args.model} not found, using ${model}`)
+    const found = (await listFlashModels(apiKey))[0]
+    if (found && found !== model) {
+      resolvedModels.set(args.model, found)
+      console.error(`coach: model ${args.model} not found, using ${found}`)
+      model = found
       res = await generate(args, model)
     }
   }
+
+  // 混み合っているときは、少し待って同じモデルでもう一度、それでもだめなら1つ前の世代の Flash モデルで試す
+  if (isBusy(res.status)) {
+    console.error(`coach: model ${model} busy (${res.status}), retrying`)
+    await sleep(delay)
+    res = await generate(args, model)
+  }
+  if (isBusy(res.status)) {
+    const list = await listFlashModels(apiKey)
+    const older = list.slice(list.indexOf(model) + 1)[0] ?? list.find((m) => m !== model)
+    if (older) {
+      console.error(`coach: model ${model} still busy, trying ${older}`)
+      await sleep(delay)
+      res = await generate(args, older)
+    }
+  }
+  if (isBusy(res.status)) throw new GeminiError('busy', res.status, await errorDetail(res, apiKey))
 
   if (res.status === 429) throw new GeminiError('rate_limited', 429, await errorDetail(res, apiKey))
   if (!res.ok) throw new GeminiError('upstream', res.status, await errorDetail(res, apiKey))
@@ -140,14 +171,14 @@ async function generate({ apiKey, system, context, messages, thinkingBudget }: C
   return res.status === 400 && withThinking ? post(false) : res
 }
 
-/** 使えるモデルの一覧から Flash モデルを選ぶ。取れなければ undefined */
-async function findFlashModel(apiKey: string): Promise<string | undefined> {
+/** 使えるモデルの一覧から Flash モデルを新しい順に取る。取れなければ空 */
+async function listFlashModels(apiKey: string): Promise<string[]> {
   const res = await send(`${API_BASE}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } })
-  if (!res.ok) return undefined
+  if (!res.ok) return []
   try {
-    return pickFlashModel((await res.json()) as ModelList)
+    return flashModels((await res.json()) as ModelList)
   } catch {
-    return undefined
+    return []
   }
 }
 

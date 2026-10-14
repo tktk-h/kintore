@@ -183,6 +183,42 @@ describe('POST /api/coach', () => {
     expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).generationConfig.thinkingConfig).toBeUndefined()
   })
 
+  describe('混み合っている（503）とき', () => {
+    const list = gemini(200, { models: [
+      { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.5-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3-flash', supportedGenerationMethods: ['generateContent'] },
+    ] })
+    const busy = () => gemini(503, { error: { message: 'The model is overloaded' } })
+    beforeEach(() => {
+      env.GEMINI_MODEL = 'gemini-3.8-flash'
+      env.GEMINI_RETRY_DELAY_MS = '0'
+      fetchMock.mockReset()
+    })
+    afterEach(() => {
+      delete env.GEMINI_RETRY_DELAY_MS
+    })
+
+    it('少し待って同じモデルでもう一度試す', async () => {
+      fetchMock.mockResolvedValueOnce(busy()).mockResolvedValueOnce(geminiOk())
+      expect((await POST(req())).status).toBe(200)
+      expect(String(fetchMock.mock.calls[1][0])).toContain('/models/gemini-3.8-flash:generateContent')
+    })
+
+    it('それでも混んでいれば、1つ前の世代の Flash モデルに切り替える', async () => {
+      fetchMock.mockResolvedValueOnce(busy()).mockResolvedValueOnce(busy()).mockResolvedValueOnce(list).mockResolvedValueOnce(geminiOk())
+      expect((await POST(req())).status).toBe(200)
+      expect(String(fetchMock.mock.calls[3][0])).toContain('/models/gemini-3.5-flash:generateContent')
+    })
+
+    it('全部だめなら 503「AIが混み合っています…」', async () => {
+      fetchMock.mockResolvedValueOnce(busy()).mockResolvedValueOnce(busy()).mockResolvedValueOnce(list).mockResolvedValue(busy())
+      const res = await POST(req())
+      expect(res.status).toBe(503)
+      expect(await expectNoSecrets(res)).toEqual({ error: 'AIが混み合っています。少し時間をおいて試してください' })
+    })
+  })
+
   it('関数の実行時間の上限は300秒（Hobby の最大）', () => {
     expect(config).toEqual({ maxDuration: 300 })
   })

@@ -12,6 +12,12 @@ declare const process: { env: Record<string, string | undefined> }
 /** Vercel 関数の設定：AIの返事を待つので実行時間の上限を60秒にする */
 export const config = { maxDuration: 300 }
 
+/** GEMINI_RETRY_DELAY_MS：混み合っているときに送り直すまで待つ時間（ミリ秒）。なければ既定 */
+function retryDelayMs(): number | undefined {
+  const n = Number(process.env.GEMINI_RETRY_DELAY_MS?.trim())
+  return process.env.GEMINI_RETRY_DELAY_MS && Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
 /** GEMINI_THINKING_BUDGET：数（0以上）ならその値、'off' なら送らない、なければ既定 */
 function thinkingBudget(): number | undefined {
   const raw = process.env.GEMINI_THINKING_BUDGET?.trim()
@@ -29,6 +35,7 @@ export const MESSAGES = {
   badRequest: '送る内容の形が違います',
   rateLimited: '今日は上限に達しました。時間をおいて試してください',
   upstream: 'AIの呼び出しに失敗しました。時間をおいて試してください',
+  busy: 'AIが混み合っています。少し時間をおいて試してください',
   invalid: 'AIの返事を読み取れませんでした',
 } as const
 
@@ -87,7 +94,7 @@ export async function handleCoach(request: Request): Promise<Response> {
 
   try {
     const reply = await callGemini({
-      apiKey, model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), ...req,
+      apiKey, model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), retryDelayMs: retryDelayMs(), ...req,
     })
     return Response.json(reply)
   } catch (e) {
@@ -95,6 +102,7 @@ export async function handleCoach(request: Request): Promise<Response> {
       // 状態と理由を記録する（理由のキーは伏せてある。合言葉・本文は出さない）
       console.error(`coach: gemini ${e.kind}${e.status ? ` ${e.status}` : ''}${e.detail ? ` - ${e.detail}` : ''}`)
       if (e.kind === 'rate_limited') return error(429, MESSAGES.rateLimited)
+      if (e.kind === 'busy') return error(503, MESSAGES.busy)
       return error(502, e.kind === 'invalid' ? MESSAGES.invalid : MESSAGES.upstream)
     }
     console.error('coach: unexpected error')
