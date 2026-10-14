@@ -208,3 +208,53 @@ describe('defaultWeightFor（記録も重量×回数もないときの初期値�
     expect(d.reason).toContain('5kg')
   })
 })
+
+describe('decideLoad：重さはいつも刻み幅の倍数（ベンチプレス 69kg の不具合）', () => {
+  const isMultiple = (w: number, s: number) => Math.abs(w / s - Math.round(w / s)) < 1e-9
+
+  it('前回の重さが刻み幅に乗っていない（66.5kg を入力した）とき、上げても 69kg ではなく刻み幅にそろえる', () => {
+    const up = decide(hist([66.5, [12, 12, 12], 3]))
+    expect(up.weight).toBe(70)
+    const hold = decide(hist([69, [10, 9, 9], 3]))
+    expect(hold.weight).toBe(70)
+    const reps = decideLoad({ history: hist([6, [12, 12, 12], 3]), repRange: range, step, logType: 'reps' })
+    expect(reps.weight).toBe(5)
+  })
+
+  it('プロフィールの重量から計算した重さも刻み幅の倍数（80×5、75×8、筋肥大の初心者・上級者）', () => {
+    // 筋肥大：初心者の複数関節 8〜12、上級者のメイン 6〜10、単関節 10〜15
+    for (const repRange of [[8, 12], [6, 10], [10, 15]] as [number, number][]) {
+      for (const baseline of [{ weight: 80, reps: 5 }, { weight: 75, reps: 8 }, { weight: 69, reps: 7 }, { weight: 61.3, reps: 11 }]) {
+        const d = decideLoad({ history: [], repRange, step, baseline, logType: 'weight_reps' })
+        expect(isMultiple(d.weight!, step), `${baseline.weight}x${baseline.reps} ${repRange} -> ${d.weight}`).toBe(true)
+      }
+    }
+  })
+
+  it('刻み幅が正しくない（0・未設定）ときは 2.5kg で丸める', () => {
+    expect(decideLoad({ history: hist([66.5, [12, 12, 12], 3]), repRange: range, step: 0, logType: 'weight_reps' }).weight).toBe(70)
+    expect(decideLoad({ history: [], repRange: range, step: Number.NaN, baseline: { weight: 80, reps: 5 }, logType: 'weight_reps' }).weight).toBe(75)
+  })
+
+  it('どんな記録・プロフィール・刻み幅でも、重さは刻み幅の倍数（網羅）', () => {
+    const efforts: (Rating | undefined)[] = [undefined, 1, 2, 3, 4, 5]
+    const weights = [17, 20, 33.3, 52.5, 66.5, 69, 71.25, 100.1]
+    const repsSets = [[12, 12, 12], [10, 9, 9], [8, 7, 6], [5, 5]]
+    for (const s of [0.5, 1, 1.25, 2.5, 5]) {
+      for (const w of weights) {
+        for (const e of efforts) {
+          for (const r of repsSets) {
+            for (const h of [hist([w, r, e]), hist([w, r, e], [w, r, e]), hist([w, r, e], [w, r, e], [w, r, e])]) {
+              const d = decideLoad({ history: h, repRange: range, step: s, logType: 'weight_reps' })
+              expect(isMultiple(d.weight!, s), `${w} ${r} ${e} step ${s} -> ${d.weight}`).toBe(true)
+            }
+          }
+        }
+        const b = decideLoad({ history: [], repRange: [6, 10], step: s, baseline: { weight: w, reps: 7 }, logType: 'weight_reps' })
+        expect(isMultiple(b.weight!, s)).toBe(true)
+        const def = decideLoad({ history: [], repRange: range, step: s, logType: 'weight_reps', defaultWeight: w })
+        expect(isMultiple(def.weight!, s)).toBe(true)
+      }
+    }
+  })
+})

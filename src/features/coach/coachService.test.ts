@@ -254,3 +254,37 @@ describe('askCoach', () => {
     expect(send).not.toHaveBeenCalled()
   })
 })
+
+describe('メニュー案の重さはすべて刻み幅の倍数（ベンチプレス 69kg の不具合）', () => {
+  async function logged(date: string, exerciseId: string, weight: number, reps: number[]) {
+    const w = newRecord<Workout>({ date, startedAt: Date.parse(`${date}T10:00:00`), finishedAt: Date.parse(`${date}T11:00:00`) })
+    await db.workouts.add(w)
+    const we = newRecord<WorkoutExercise>({ workoutId: w.id, exerciseId, order: 0, restSec: 90, effort: 3 })
+    await db.workoutExercises.add(we)
+    await db.sets.bulkAdd(reps.map((r, i) => newRecord<SetRecord>({
+      workoutId: w.id, workoutExerciseId: we.id, order: i, done: true, weight, reps: r,
+    })))
+  }
+
+  it('手入力した 66.5kg で全セット届いても、次は 69kg ではなく 70kg', async () => {
+    await logged('2026-10-12', 'ex-bench-press', 66.5, [10, 10, 10])
+    const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
+    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ exerciseId: 'ex-bench-press', weight: 70 })
+  })
+
+  for (const [goal, experience] of [['hypertrophy', 'none'], ['hypertrophy', 'over_3y'], ['strength', 'y1_3']] as const) {
+    for (const baseline of [{ weight: 80, reps: 5 }, { weight: 75, reps: 8 }]) {
+      it(`${goal}・${experience}・${baseline.weight}×${baseline.reps}：どの種目の重さも刻み幅 2.5 の倍数`, async () => {
+        const p = { ...profile, goal, experience, baselines: [{ exerciseId: 'ex-bench-press', ...baseline }, { exerciseId: 'ex-squat', ...baseline }] }
+        await saveProfile(p)
+        await logged('2026-10-12', 'ex-lat-pulldown', 41, [12, 12, 12])
+        await logged('2026-10-12', 'ex-pec-deck', 23, [9, 9, 9])
+        const s = buildSkeleton({ profile: { ...p, id: 'me', updatedAt: 0 }, weekStart: NEXT, weeksSinceDeload: 0 })
+        const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply(s)) })
+        const weights = m.proposal!.days.flatMap((d) => d.exercises).flatMap((x) => (x.weight === undefined ? [] : [x.weight]))
+        expect(weights.length).toBeGreaterThan(0)
+        for (const w of weights) expect(Math.abs(w / 2.5 - Math.round(w / 2.5)), String(w)).toBeLessThan(1e-9)
+      })
+    }
+  }
+})

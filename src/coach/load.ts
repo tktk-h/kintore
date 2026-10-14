@@ -101,8 +101,17 @@ const isEasy = (s?: PastSession) => s?.effort !== undefined && s.effort <= 2
  * 8. 幅の中（上限に届いていない） → 据え置きで回数を1回増やす
  * 重さを上げたら回数は下限から再スタートする。
  * 回数のみの種目は重さを扱わず、加重（前回の重さが0以外）なら前回の値を引き継ぐ。時間の種目は重さなし。
+ *
+ * 提案する重さは最後に必ず刻み幅の倍数に丸める。記録の重さ（手入力した 66.5kg や、前の刻み幅で記録した重さ）を
+ * そのまま上げ下げすると刻み幅からずれるため（例：66.5＋2.5＝69kg）。刻み幅が正しくないときは 2.5kg で丸める。
  */
-export function decideLoad(args: {
+export function decideLoad(args: DecideLoadArgs): LoadDecision {
+  const step = Number(args.step) > 0 ? Number(args.step) : FALLBACK_STEP
+  const d = decideUnrounded({ ...args, step })
+  return d.weight === undefined ? d : { ...d, weight: roundToStep(d.weight, step) }
+}
+
+export interface DecideLoadArgs {
   history: PastSession[]
   repRange: [number, number]
   step: number
@@ -110,7 +119,12 @@ export function decideLoad(args: {
   logType: LogType
   /** 記録も重量×回数もないときの重さ（defaultWeightFor）。既定は20kg、null なら重さを入れない */
   defaultWeight?: number | null
-}): LoadDecision {
+}
+
+/** 刻み幅が正しくない（0・未設定・数でない）ときに使う刻み幅 */
+export const FALLBACK_STEP = 2.5
+
+function decideUnrounded(args: DecideLoadArgs): LoadDecision {
   const { repRange, step, baseline, logType, defaultWeight = DEFAULT_WEIGHT } = args
   const [low, high] = repRange
   const history = [...args.history].sort((a, b) => b.date.localeCompare(a.date))
