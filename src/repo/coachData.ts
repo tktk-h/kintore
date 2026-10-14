@@ -6,6 +6,7 @@ import { db } from '../db/db'
 import type { ChatMessage, Exercise, LogType, PlannedWorkout, Rating, Profile, SetRecord, Settings, Workout } from '../db/types'
 import { addDays, daysBetween, mondayOf, todayKey } from '../lib/dates'
 import { valuesOf } from '../lib/setValues'
+import { weightStepFor } from '../lib/weightStep'
 import { listChatMessages } from './chat'
 import { listExercises } from './exercises'
 import { getProfile } from './profile'
@@ -141,7 +142,7 @@ export async function loadCoachInputs(weekStart: string, today = todayKey()): Pr
       const history = sessions[pe.exerciseId] ?? []
       if (!ex || history.length === 0) { slotSetDelta[pe.slot] = 0; continue }
       const reps = pe.sets.find((s) => s.reps !== undefined)?.reps ?? 10
-      const d = decideLoad({ history, repRange: pe.repRange ?? [reps, reps], step: settings.weightStep, logType: ex.logType })
+      const d = decideLoad({ history, repRange: pe.repRange ?? [reps, reps], step: weightStepFor(settings, ex.equipment), logType: ex.logType })
       slotSetDelta[pe.slot] = d.setDelta
     }
   }

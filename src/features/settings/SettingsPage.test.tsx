@@ -20,6 +20,15 @@ describe('SettingsPage', () => {
     await waitFor(async () => expect((await getSettings()).weightStep).toBe(1.25))
   })
 
+  it('ダンベルの刻み幅を変えられる（既定は1kg、0.5/1/2/2.5kg から選ぶ）', async () => {
+    open()
+    const select = await screen.findByRole('combobox', { name: 'ダンベルの刻み幅' })
+    await waitFor(() => expect(select).toHaveValue('1'))
+    expect([...(select as HTMLSelectElement).options].map((o) => o.value)).toEqual(['0.5', '1', '2', '2.5'])
+    await userEvent.selectOptions(select, '2')
+    await waitFor(async () => expect((await getSettings()).dumbbellStep).toBe(2))
+  })
+
   it('確認してからバックアップを読み込む', async () => {
     await createRoutine({ name: '胸の日', exercises: [] })
     const text = JSON.stringify(await exportBackup())

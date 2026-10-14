@@ -32,6 +32,16 @@ describe('backup', () => {
     expect(await listRoutines()).toEqual([])
   })
 
+  it('設定にダンベルの刻み幅があってもなくても読み込める（数でなければ読み込まない）', async () => {
+    const backup = await exportBackup()
+    backup.data.settings = [{ id: 'app', weightStep: 2.5, repStep: 1 }]
+    expect(parseBackup(JSON.stringify(backup)).data.settings).toHaveLength(1)
+    backup.data.settings = [{ id: 'app', weightStep: 2.5, repStep: 1, dumbbellStep: 2 }]
+    expect(parseBackup(JSON.stringify(backup)).data.settings).toHaveLength(1)
+    backup.data.settings = [{ id: 'app', weightStep: 2.5, repStep: 1, dumbbellStep: '2' }]
+    expect(() => parseBackup(JSON.stringify(backup))).toThrow()
+  })
+
   it('一時停止の項目があってもなくても読み込める', async () => {
     const backup = await exportBackup()
     const base = { id: 'w', createdAt: 0, updatedAt: 0, deleted: false, date: '2026-10-12', startedAt: 0 }

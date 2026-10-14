@@ -1,4 +1,5 @@
 import type { Equipment, Exercise, LogType, Profile, Rating } from '../db/types'
+import { weightStepFor } from '../lib/weightStep'
 import type { ProposalExercise } from './types'
 
 /** その種目の過去1回分の記録 */
@@ -241,10 +242,17 @@ export interface LoadInputs {
   profile: Pick<Profile, 'baselines'>
   /** 設定の重量の刻み幅 */
   step: number
+  /** 設定のダンベルの刻み幅（ダンベルの種目に使う。ない・正しくないときは1kg） */
+  dumbbellStep?: number
+}
+
+/** 種目の重さの刻み幅：ダンベルはダンベルの刻み幅、それ以外は重量の刻み幅 */
+export function loadStepFor(ex: Pick<Exercise, 'equipment'>, inputs: Pick<LoadInputs, 'step' | 'dumbbellStep'>): number {
+  return weightStepFor({ weightStep: inputs.step, dumbbellStep: inputs.dumbbellStep }, ex.equipment)
 }
 
 /**
- * 種目1つの重さと回数（記録 → プロフィールの重量 → 種目の目安の重さ → 初期値）。
+ * 種目1つの重さと回数（記録 →プロフィールの重量 → 種目の目安の重さ → 初期値）。
  * AIの案に重さを入れるときと、メニュー案の種目を入れ替えたときに使う
  */
 export function decideExerciseLoad(ex: Exercise, repRange: [number, number], inputs: LoadInputs): LoadDecision {
@@ -252,7 +260,7 @@ export function decideExerciseLoad(ex: Exercise, repRange: [number, number], inp
   return decideLoad({
     history: inputs.sessions[ex.id] ?? [],
     repRange,
-    step: inputs.step,
+    step: loadStepFor(ex, inputs),
     baseline: baseline ? { weight: baseline.weight, reps: baseline.reps } : undefined,
     logType: ex.logType,
     startWeight: ex.startWeight,

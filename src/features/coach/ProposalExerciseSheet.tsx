@@ -7,8 +7,9 @@ import { useSafeAction, useToast } from '../../components/Toast'
 import { MANUAL_WEIGHT_REASON, recheckProposal, replaceExercise, swapCandidates, swapExercise } from '../../coach/edit'
 import type { ProposalExercise } from '../../coach/types'
 import { LIMITS } from '../../coach/validate'
-import { EQUIPMENT_LABELS, MOVEMENT_PATTERN_LABELS, MUSCLE_LABELS, type ChatMessage, type Exercise, type Muscle } from '../../db/types'
+import { DEFAULT_SETTINGS, EQUIPMENT_LABELS, MOVEMENT_PATTERN_LABELS, MUSCLE_LABELS, type ChatMessage, type Exercise, type Muscle } from '../../db/types'
 import { formatDateJa, mondayOf, todayKey } from '../../lib/dates'
+import { weightStepFor } from '../../lib/weightStep'
 import { formatSets } from '../../lib/workoutStats'
 import { updateProposal } from '../../repo/chat'
 import { loadCoachInputs, type CoachInputs } from '../../repo/coachData'
@@ -69,7 +70,7 @@ export function ProposalExerciseSheet({ message, dayIndex, exIndex, catalog, onC
 
   const swap = (next: Exercise) => {
     if (!inputs || !profile) return
-    setDraft((d) => swapExercise(proposal, day, d, next, profile, { sessions: inputs.sessions, profile, step: inputs.settings.weightStep }))
+    setDraft((d) => swapExercise(proposal, day, d, next, profile, { sessions: inputs.sessions, profile, step: inputs.settings.weightStep, dumbbellStep: inputs.settings.dumbbellStep }))
     setSwapping(false)
   }
 
@@ -139,7 +140,7 @@ export function ProposalExerciseSheet({ message, dayIndex, exIndex, catalog, onC
             {hasWeight(ex) && (
               <div className="ex-edit-row">
                 <span>重さ</span>
-                <Stepper label="重さ" unit="kg" step={settings?.weightStep ?? 2.5} value={draft.weight ?? 0}
+                <Stepper label="重さ" unit="kg" step={weightStepFor(settings ?? DEFAULT_SETTINGS, ex?.equipment)} value={draft.weight ?? 0}
                   onChange={(weight) => set({ weight, weightReason: MANUAL_WEIGHT_REASON })} />
               </div>
             )}

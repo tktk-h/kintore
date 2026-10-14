@@ -39,7 +39,7 @@ const CHECKS: Record<TableName, (r: Row) => boolean> = {
   sets: (r) =>
     bool(r.deleted) && str(r.workoutId) && str(r.workoutExerciseId) && num(r.order) && bool(r.done),
   bodyLogs: (r) => bool(r.deleted) && str(r.date),
-  settings: (r) => r.id === 'app' && num(r.weightStep) && num(r.repStep),
+  settings: (r) => r.id === 'app' && num(r.weightStep) && num(r.repStep) && (r.dumbbellStep === undefined || num(r.dumbbellStep)),
   profile: (r) =>
     r.id === 'me' && str(r.goal) && str(r.experience) && num(r.daysPerWeek) && num(r.minutesPerSession) &&
     Array.isArray(r.weekdays) && r.weekdays.every(num) &&

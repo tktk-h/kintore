@@ -143,6 +143,11 @@ describe('メニュー案の種目の詳細と編集', () => {
     const swapped = await screen.findByRole('dialog', { name: 'ダンベルプレス' })
     expect(within(swapped).getByText('初心者の目安の重さ')).toBeInTheDocument()
     expect(within(swapped).getByRole('button', { name: '重さ 10kg' })).toBeInTheDocument()
+    // ダンベルの種目はダンベルの刻み幅（既定1kg）で変える
+    await userEvent.click(within(swapped).getByRole('button', { name: '重さを増やす' }))
+    expect(within(swapped).getByRole('button', { name: '重さ 11kg' })).toBeInTheDocument()
+    await userEvent.click(within(swapped).getByRole('button', { name: '重さを減らす' }))
+    expect(within(swapped).getByRole('button', { name: '重さ 10kg' })).toBeInTheDocument()
     await userEvent.click(within(swapped).getByRole('button', { name: '保存' }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

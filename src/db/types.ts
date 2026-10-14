@@ -143,11 +143,13 @@ export interface Settings {
   id: 'app'
   weightStep: number
   repStep: number
+  /** ダンベルの種目の重さの刻み幅（後から追加した項目。古いデータにはない。既定は1kg） */
+  dumbbellStep?: number
   /** AIコーチ（サーバー）に送る合言葉 */
   coachPasscode?: string
 }
 
-export const DEFAULT_SETTINGS: Settings = { id: 'app', weightStep: 2.5, repStep: 1 }
+export const DEFAULT_SETTINGS: Settings = { id: 'app', weightStep: 2.5, repStep: 1, dumbbellStep: 1 }
 
 export const BODY_PARTS: BodyPart[] = ['chest', 'back', 'legs', 'shoulders', 'arms', 'abs', 'cardio']
 

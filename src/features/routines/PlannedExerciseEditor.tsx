@@ -58,7 +58,7 @@ export function PlannedExerciseEditor({ storageKey, value, exercise, settings, i
       {value.sets.map((s, i) => (
         <div key={i} className="set-row">
           <span className="set-no">{i + 1}</span>
-          <SetInputs logType={exercise.logType} bodyPart={exercise.bodyPart} values={s} settings={settings} onChange={(c) => updateSet(i, c)} />
+          <SetInputs logType={exercise.logType} bodyPart={exercise.bodyPart} equipment={exercise.equipment} values={s} settings={settings} onChange={(c) => updateSet(i, c)} />
           <button
             type="button"
             className="icon-btn"

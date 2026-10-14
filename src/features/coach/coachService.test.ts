@@ -4,6 +4,7 @@ import { buildSkeleton } from '../../coach/skeleton'
 import type { Skeleton } from '../../coach/types'
 import type { MovementPattern, Profile } from '../../db/types'
 import { db } from '../../db/db'
+import { seedExercises } from '../../db/seedExercises'
 import type { SetRecord, Workout, WorkoutExercise } from '../../db/types'
 import { newRecord } from '../../lib/records'
 import { listChatMessages } from '../../repo/chat'
@@ -78,8 +79,9 @@ describe('askCoach', () => {
     // 記録もプロフィールの重量もない種目は、種目ごとの初心者の目安の重さを刻み幅 2.5 で丸めて試す
     expect(m.proposal!.days[0].exercises[1]).toMatchObject({ exerciseId: 'ex-seated-cable-row', weight: 30 })
     const upper = m.proposal!.days[0].exercises
-    expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 5 }) // 4kg → 5kg
-    expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 7.5 }) // 8kg → 7.5kg
+    // ダンベルの種目はダンベルの刻み幅（既定1kg）で丸める
+    expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 4 }) // 4kg のまま
+    expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 8 }) // 8kg のまま
     expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 15, weightReason: '初心者の目安の重さ' })
     expect(m.text).toContain('軽め')
     expect(m.proposal!.muscleSets.chest).toBeGreaterThan(0)
@@ -276,16 +278,17 @@ describe('メニュー案の重さはすべて刻み幅の倍数（ベンチプ�
 
   for (const [goal, experience] of [['hypertrophy', 'none'], ['hypertrophy', 'over_3y'], ['strength', 'y1_3']] as const) {
     for (const baseline of [{ weight: 80, reps: 5 }, { weight: 75, reps: 8 }]) {
-      it(`${goal}・${experience}・${baseline.weight}×${baseline.reps}：どの種目の重さも刻み幅 2.5 の倍数`, async () => {
+      it(`${goal}・${experience}・${baseline.weight}×${baseline.reps}：どの種目の重さも刻み幅（2.5、ダンベルは1）の倍数`, async () => {
         const p = { ...profile, goal, experience, baselines: [{ exerciseId: 'ex-bench-press', ...baseline }, { exerciseId: 'ex-squat', ...baseline }] }
         await saveProfile(p)
         await logged('2026-10-12', 'ex-lat-pulldown', 41, [12, 12, 12])
         await logged('2026-10-12', 'ex-pec-deck', 23, [9, 9, 9])
         const s = buildSkeleton({ profile: { ...p, id: 'me', updatedAt: 0 }, weekStart: NEXT, weeksSinceDeload: 0 })
         const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply(s)) })
-        const weights = m.proposal!.days.flatMap((d) => d.exercises).flatMap((x) => (x.weight === undefined ? [] : [x.weight]))
+        const dumbbells = new Set(seedExercises().filter((e) => e.equipment === 'dumbbell').map((e) => e.id))
+        const weights = m.proposal!.days.flatMap((d) => d.exercises).flatMap((x) => (x.weight === undefined ? [] : [[x.weight, dumbbells.has(x.exerciseId) ? 1 : 2.5]]))
         expect(weights.length).toBeGreaterThan(0)
-        for (const w of weights) expect(Math.abs(w / 2.5 - Math.round(w / 2.5)), String(w)).toBeLessThan(1e-9)
+        for (const [w, step] of weights) expect(Math.abs(w / step - Math.round(w / step)), String(w)).toBeLessThan(1e-9)
       })
     }
   }

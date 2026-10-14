@@ -25,7 +25,7 @@ export function SetRow({ index, set, exercise, settings, onChange, onToggle, onD
   return (
     <div className={`set-row ${done ? 'done' : ''}`}>
       <span className="set-no">{no}</span>
-      <SetInputs logType={exercise.logType} bodyPart={exercise.bodyPart} values={set} settings={settings} onChange={onChange} />
+      <SetInputs logType={exercise.logType} bodyPart={exercise.bodyPart} equipment={exercise.equipment} values={set} settings={settings} onChange={onChange} />
       <input
         type="checkbox"
         className="set-check"

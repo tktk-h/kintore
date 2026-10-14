@@ -78,7 +78,7 @@ function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, t
 function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog: Exercise[]): { proposal: Proposal; notes: string[] } {
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const notes = new Set<string>()
-  const load: LoadInputs = { sessions: inputs.sessions, profile, step: inputs.settings.weightStep }
+  const load: LoadInputs = { sessions: inputs.sessions, profile, step: inputs.settings.weightStep, dumbbellStep: inputs.settings.dumbbellStep }
   const days = p.days.map((d) => ({
     ...d,
     exercises: d.exercises.map((x) => {

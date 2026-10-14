@@ -105,6 +105,16 @@ describe('種目の入れ替え', () => {
     expect(iso).toMatchObject({ repRange: [10, 15], reps: 10, restSec: 75, weight: 12.5, weightReason: '前回15回×3できたので+2.5kg' })
   })
 
+  it('ダンベルの種目はダンベルの刻み幅で重さを上げる', () => {
+    const ex = catalog.find((e) => e.id === 'ex-dumbbell-press')!
+    const sessions = { 'ex-dumbbell-press': [{ date: '2026-10-05', weight: 12, repsPerSet: [10, 10, 10], targetReps: 6, effort: 3 as const }] }
+    expect(swapExercise(p, day, bench, ex, profile(), { ...load, sessions }).weight).toBe(13)
+    expect(swapExercise(p, day, bench, ex, profile(), { ...load, sessions, dumbbellStep: 2 }).weight).toBe(14)
+    // ダンベル以外は重量の刻み幅のまま
+    const bp = { 'ex-bench-press': [{ date: '2026-10-05', weight: 60, repsPerSet: [10, 10, 10], targetReps: 6, effort: 3 as const }] }
+    expect(swapExercise(p, day, bench, catalog.find((e) => e.id === 'ex-bench-press')!, profile(), { ...load, sessions: bp, dumbbellStep: 1 }).weight).toBe(62.5)
+  })
+
   it('自重の種目に入れ替えると重さを消す', () => {
     const dips = catalog.find((e) => e.id === 'ex-dips')!
     const next = swapExercise(p, day, { ...bench, weight: 60 }, dips, profile(), load)

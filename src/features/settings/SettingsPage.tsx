@@ -11,6 +11,8 @@ import { clearChat } from '../../repo/chat'
 import { getSettings, saveSettings } from '../../repo/settings'
 
 const WEIGHT_STEPS = [0.5, 1, 1.25, 2.5, 5]
+/** ダンベルは1kg刻みが多いので別に選ぶ */
+const DUMBBELL_STEPS = [0.5, 1, 2, 2.5]
 const REP_STEPS = [1, 2, 5]
 
 export function SettingsPage() {
@@ -74,6 +76,19 @@ export function SettingsPage() {
           重量の刻み幅
           <select value={settings.weightStep} onChange={(e) => run(() => saveSettings({ weightStep: Number(e.target.value) }))}>
             {WEIGHT_STEPS.map((s) => (
+              <option key={s} value={s}>
+                {s}kg
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          ダンベルの刻み幅
+          <select
+            value={settings.dumbbellStep ?? DEFAULT_SETTINGS.dumbbellStep}
+            onChange={(e) => run(() => saveSettings({ dumbbellStep: Number(e.target.value) }))}
+          >
+            {DUMBBELL_STEPS.map((s) => (
               <option key={s} value={s}>
                 {s}kg
               </option>
