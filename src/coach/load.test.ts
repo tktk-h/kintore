@@ -134,6 +134,36 @@ describe('decideLoad（設計書「5. 重さの決め方」）', () => {
   })
 })
 
+describe('decideLoad：目標回数は回数の幅に収める', () => {
+  it('初めての種目（記録なし）は、重量×回数があってもなくても幅の下限から（ダブルプログレッションの始まり）', () => {
+    for (const repRange of [[8, 12], [10, 15], [6, 10], [3, 6]] as [number, number][]) {
+      const none = decideLoad({ history: [], repRange, step, logType: 'weight_reps', defaultWeight: 5 })
+      expect(none.reps).toBe(repRange[0])
+      const base = decideLoad({ history: [], repRange, step, logType: 'weight_reps', baseline: { weight: 60, reps: 10 } })
+      expect(base.reps).toBe(repRange[0])
+      expect(decideLoad({ history: [], repRange, step, logType: 'reps' }).reps).toBe(repRange[0])
+    }
+  })
+
+  it('前回が別の幅で行われていても、次回の回数は今の幅に収める', () => {
+    // 前回は単関節の幅（10〜15回）で10回 → 今の幅 8〜12 の中で1回増やして11回（上限12を超えない）
+    expect(decideLoad({ history: hist([20, [10, 10]]), repRange: [8, 12], step, logType: 'weight_reps' }).reps).toBe(11)
+    // 前回13・12回（上限以上）→ 届いたので重さを上げて下限から
+    expect(decideLoad({ history: hist([20, [13, 12], 3]), repRange: [8, 12], step, logType: 'weight_reps' })).toMatchObject({ weight: 22.5, reps: 8 })
+    // 前回14・11回で今の幅は 6〜10：幅の中ではないが、回数は上限10を超えない
+    for (const effort of [undefined, 3, 4] as (Rating | undefined)[]) {
+      const d = decideLoad({ history: hist([20, [14, 11], effort]), repRange: [6, 10], step, logType: 'weight_reps' })
+      expect(d.reps).toBeGreaterThanOrEqual(6)
+      expect(d.reps).toBeLessThanOrEqual(10)
+    }
+    // 前回6回で今の幅は 10〜15：下限を下回らない
+    const low = decideLoad({ history: hist([20, [6, 6], 3]), repRange: [10, 15], step, logType: 'weight_reps' })
+    expect(low.reps).toBe(10)
+    const reps = decideLoad({ history: hist([0, [20, 18], 3]), repRange: [8, 12], step, logType: 'reps' })
+    expect(reps.reps).toBe(12)
+  })
+})
+
 describe('decideLoad：時間の種目', () => {
   const timed = (history: PastSession[]) => decideLoad({ history, repRange: range, step, logType: 'time_distance' })
 
