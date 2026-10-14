@@ -153,3 +153,23 @@ describe('buildCoachRequest', () => {
     expect(r.messages.at(-1)?.text).toBe('来週のメニューを作って')
   })
 })
+
+describe('チャットで頼まれた変更（adjust）と前の案（previousProposal）', () => {
+  it('前の案を、日付・枠・種目・セット数・回数・重さだけの短い形で渡す', () => {
+    const previousProposal = [
+      { date: '2026-10-19', slot: 'upper.1', exerciseId: 'ex-bench-press', sets: 3, reps: 8, weight: 60 },
+      { date: '2026-10-19', slot: 'upper.9', exerciseId: 'ex-plank', sets: 3, reps: 1 },
+    ]
+    const c = ctx({ previousProposal })
+    expect(c.previousProposal.exercises).toEqual(previousProposal)
+    expect(typeof c.previousProposal.note).toBe('string')
+    expect(ctx()).not.toHaveProperty('previousProposal')
+  })
+
+  it('ルールに adjust の入れ方と、前の案をもとに直すことを書く', () => {
+    const { system } = buildCoachRequest(args())
+    expect(system).toContain('adjust')
+    expect(system).toContain('previousProposal')
+    expect(system).toMatch(/重く|上げ/)
+  })
+})

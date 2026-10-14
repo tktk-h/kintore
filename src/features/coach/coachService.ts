@@ -1,4 +1,5 @@
-import type { CoachChatTurn, CoachReply, CoachRequest } from '../../../api/_lib/schema'
+import type { CoachChatTurn, CoachReply, CoachReplyProposal, CoachRequest } from '../../../api/_lib/schema'
+import { applyAdjust, findPrevious, type PreviousExercise } from '../../coach/adjust'
 import { buildCoachRequest, type CoachIntent } from '../../coach/context'
 import { decideExerciseLoad, withLoad, type LoadInputs } from '../../coach/load'
 import { toProposal } from '../../coach/response'
@@ -6,7 +7,7 @@ import { buildSkeleton } from '../../coach/skeleton'
 import type { DoneDay, Proposal, Skeleton } from '../../coach/types'
 import { countMuscleSets } from '../../coach/volume'
 import { checkProposalIssues } from '../../coach/validate'
-import type { ChatMessage, Exercise, Profile } from '../../db/types'
+import type { ChatMessage, Exercise, PlannedWorkout, Profile } from '../../db/types'
 import { addDays, mondayOf, todayKey } from '../../lib/dates'
 import { addChatMessage } from '../../repo/chat'
 import { saveProfile } from '../../repo/profile'
@@ -74,26 +75,59 @@ function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, t
 /**
  * 各種目の重さと回数をアプリが決める（設計書「5. 重さの決め方」「6. きつさによる調整」）。
  * セット数の増減（setDelta）は骨組みの段階で反映済みなので、ここでは重さと回数だけを入れる。
+ * そのあと、チャットで頼まれた変更（AIの adjust）を前の案の値から入れ、前の案より重さを下げないようにする（applyAdjust）。
  */
-function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog: Exercise[]): { proposal: Proposal; notes: string[] } {
+function applyLoads(
+  p: Proposal, reply: CoachReplyProposal, inputs: CoachInputs, profile: Profile, catalog: Exercise[], previous: PreviousExercise[] | undefined,
+): { proposal: Proposal; notes: string[] } {
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const notes = new Set<string>()
   const load: LoadInputs = { sessions: inputs.sessions, profile, step: inputs.settings.weightStep, dumbbellStep: inputs.settings.dumbbellStep }
-  const days = p.days.map((d) => ({
+  const days = p.days.map((d, i) => ({
     ...d,
-    exercises: d.exercises.map((x) => {
+    exercises: d.exercises.map((x, j) => {
       const ex = byId.get(x.exerciseId)
       if (!ex) return x
       const decision = decideExerciseLoad(ex, x.repRange, load)
       const hasBaseline = profile.baselines.some((b) => b.exerciseId === x.exerciseId)
       if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !hasBaseline && decision.weight !== undefined) notes.add(decision.reason)
-      return withLoad(x, ex, decision)
+      return applyAdjust({
+        x: withLoad(x, ex, decision), ex, decision, previous: findPrevious(previous, d.date, x.slot, x.exerciseId),
+        adjust: reply.days[i]?.exercises[j]?.adjust, step: load.step, dumbbellStep: load.dumbbellStep,
+      })
     }),
   }))
-  return { proposal: { ...p, days }, notes: notes.size ? ['最初は軽めの重さで試して、きつさを記録してください。'] : [] }
+  // 頼まれてセット数を変えたときのために、部位ごとの週のセット数を数え直す
+  const muscleSets = countMuscleSets(days.flatMap((d) => d.exercises), catalog)
+  return { proposal: { ...p, days, muscleSets }, notes: notes.size ? ['最初は軽めの重さで試して、きつさを記録してください。'] : [] }
 }
 
 
+
+/**
+ * 前の案（AIに previousProposal として渡す）：一番新しいメニュー案が反映前ならその案、
+ * 反映済み（またはメニュー案がない）なら今週・来週のAIの予定。どちらもなければ undefined
+ */
+export function previousProposalOf(chat: ChatMessage[], plans: PlannedWorkout[]): PreviousExercise[] | undefined {
+  const latest = [...chat].reverse().find((m) => m.role === 'coach' && m.proposal && !m.deleted)
+  if (latest?.proposal && latest.appliedAt === undefined) {
+    return latest.proposal.days.flatMap((d) => d.exercises.map((x) => ({
+      date: d.date, slot: x.slot, exerciseId: x.exerciseId, sets: x.sets, reps: x.reps, ...(x.weight !== undefined ? { weight: x.weight } : {}),
+    })))
+  }
+  const seen = new Set<string>()
+  const list = plans
+    .filter((p) => p.source === 'ai' && !p.deleted && !seen.has(p.id) && seen.add(p.id))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((p) => p.exercises.map((x) => {
+      const first = x.sets[0] ?? {}
+      return {
+        date: p.date, ...(x.slot ? { slot: x.slot } : {}), exerciseId: x.exerciseId, sets: x.sets.length, reps: first.reps ?? x.repRange?.[0] ?? 0,
+        ...(first.weight !== undefined ? { weight: first.weight } : {}),
+      }
+    }))
+  return list.length ? list : undefined
+}
 interface Finalized {
   proposal: Proposal; issues: string[]; notes: string[]
   /** 作り直しを頼むほどの問題の数（ProposalIssue.serious） */
@@ -108,6 +142,8 @@ interface FinalizeContext {
   /** 今週の見直しで組み始める日 */
   from: string
   thisWeek?: { inputs: CoachInputs; skeleton: Skeleton }
+  /** 前の案（頼まれた変更のもと・重さを下げない決まりに使う） */
+  previous?: PreviousExercise[]
 }
 
 function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefined {
@@ -121,7 +157,7 @@ function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefine
   const base: Proposal = {
     ...toProposal(reply.proposal, skeleton, inputs.catalog, ctx.profile), deload: skeleton.deload, skeleton, ...(earliest ? { earliest } : {}),
   }
-  const { proposal, notes } = applyLoads(base, inputs, ctx.profile, inputs.catalog)
+  const { proposal, notes } = applyLoads(base, reply.proposal, inputs, ctx.profile, inputs.catalog, ctx.previous)
   const found = checkProposalIssues(proposal, skeleton, inputs.catalog, ctx.profile, earliest)
   return { proposal, issues: found.map((i) => i.text), notes, serious: found.filter((i) => i.serious).length }
 }
@@ -161,6 +197,8 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const from = startDate(done, today, opts.skipToday ?? false)
   const earliest = intent === 'this_week' || intent === 'chat' ? from : undefined
   const passcode = inputs.settings.coachPasscode ?? ''
+  // 前の案：AIが作り直さずに直せるように渡し、頼まれた変更のもと・重さを下げない決まりに使う
+  const previous = previousProposalOf(inputs.chat, [...inputs.existingPlans, ...(thisWeekInputs && thisWeekInputs !== inputs ? thisWeekInputs.existingPlans : [])])
 
   /** 骨組みと、返事を確かめるための材料 */
   const plan = (p: Profile, planIntent: CoachIntent): FinalizeContext => {
@@ -169,7 +207,7 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
     const thisWeek = planIntent === 'chat' && thisWeekInputs
       ? { inputs: thisWeekInputs, skeleton: skeletonFor(thisWeekInputs, p, thisMonday, { from, done }) }
       : undefined
-    return { inputs, profile: p, skeleton, intent: planIntent, today, from, thisWeek }
+    return { inputs, profile: p, skeleton, intent: planIntent, today, from, thisWeek, previous }
   }
 
   /** 送って、案があれば確かめる。問題があれば1回だけ作り直してもらう */
@@ -201,7 +239,7 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const first = plan(profile, intent)
   const request: CoachRequest = buildCoachRequest({
     profile, skeleton: first.skeleton, catalog: inputs.catalog, history: inputs.history, existingPlans: inputs.existingPlans,
-    previousSlots: inputs.previousSlots, chat: prior, userText: text, intent, earliestDate: earliest, today,
+    previousSlots: inputs.previousSlots, chat: prior, userText: text, intent, earliestDate: earliest, today, previousProposal: previous,
   })
   const firstRound = await round(request, first)
   let result = firstRound.result

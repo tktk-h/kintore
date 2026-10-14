@@ -13,7 +13,14 @@ export interface CoachReplyExercise {
   sets: number
   reps: number
   restSec: number
+  /** ユーザーに頼まれた変更（重さ・回数・セット数を上げる／下げる）。アプリが前の案の値から変える */
+  adjust?: CoachAdjust
 }
+
+export type AdjustDirection = 'up' | 'down'
+export const ADJUST_KEYS = ['load', 'reps', 'sets'] as const
+/** 種目ごとの変更の依頼。load：重さ、reps：回数、sets：セット数 */
+export type CoachAdjust = Partial<Record<(typeof ADJUST_KEYS)[number], AdjustDirection>>
 
 export interface CoachReplyDay {
   /** YYYY-MM-DD */
@@ -92,6 +99,15 @@ export const COACH_REPLY_SCHEMA = {
                     sets: { type: 'INTEGER' },
                     reps: { type: 'INTEGER' },
                     restSec: { type: 'INTEGER' },
+                    adjust: {
+                      type: 'OBJECT',
+                      description: 'ユーザーが重さ・回数・セット数を変えてほしいと頼んだときだけ、対象の種目に入れる。重さの数字はアプリが計算する',
+                      properties: {
+                        load: { type: 'STRING', enum: ['up', 'down'], description: '重さを上げる（up）・下げる（down）' },
+                        reps: { type: 'STRING', enum: ['up', 'down'], description: '回数を増やす（up）・減らす（down）' },
+                        sets: { type: 'STRING', enum: ['up', 'down'], description: 'セット数を増やす（up）・減らす（down）' },
+                      },
+                    },
                   },
                   required: ['slot', 'exerciseId', 'sets', 'reps', 'restSec'],
                 },
@@ -122,7 +138,21 @@ function fail(): never {
 
 function parseExercise(v: unknown): CoachReplyExercise {
   if (!isObject(v) || !isStr(v.slot) || !isStr(v.exerciseId) || !isNum(v.sets) || !isNum(v.reps) || !isNum(v.restSec)) fail()
-  return { slot: v.slot, exerciseId: v.exerciseId, sets: v.sets, reps: v.reps, restSec: v.restSec }
+  const ex: CoachReplyExercise = { slot: v.slot, exerciseId: v.exerciseId, sets: v.sets, reps: v.reps, restSec: v.restSec }
+  const adjust = parseAdjust(v.adjust)
+  if (adjust) ex.adjust = adjust
+  return ex
+}
+
+/** adjust は知っている値（up／down）だけ受け取る。何も残らなければ undefined（形が違っても案は捨てない） */
+function parseAdjust(v: unknown): CoachAdjust | undefined {
+  if (!isObject(v)) return undefined
+  const out: CoachAdjust = {}
+  for (const key of ADJUST_KEYS) {
+    const d = v[key]
+    if (d === 'up' || d === 'down') out[key] = d
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 function parseDay(v: unknown): CoachReplyDay {

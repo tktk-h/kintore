@@ -25,6 +25,8 @@ export interface LoadDecision {
   setDelta: -1 | 0 | 1
   /** 短い理由（日本語。メニュー案の種目の詳細に「この重さにした理由」として出す） */
   reason: string
+  /** 届かなかった・きつさ5が続いたので重さを下げた（前の案より軽くしてよい：adjust.ts） */
+  reduced?: boolean
 }
 
 /** 理由の文（短く。メニュー案の種目の詳細に出す） */
@@ -214,17 +216,17 @@ function progress(
   const reachedUp = () => up(1, `前回${Math.min(...last.repsPerSet)}回×${last.repsPerSet.length}できたので+${kg(step)}`)
 
   if (prev && prev2 && [last, prev, prev2].every((s) => s.weight === w && outcome(s, repRange) === 'missed')) {
-    return { weight: reduce(w, 0.1, step), reps: low, setDelta: -1, reason: REASONS.missed3 }
+    return { weight: reduce(w, 0.1, step), reps: low, setDelta: -1, reduced: true, reason: REASONS.missed3 }
   }
   if (last.effort === undefined) {
     if (o === 'reached') return reachedUp()
     return hold(o === 'missed' ? REASONS.missedSame : REASONS.inRange)
   }
   if (o === 'missed') {
-    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: REASONS.missed }
+    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reduced: true, reason: REASONS.missed }
   }
   if (last.effort === 5 && prev?.effort === 5) {
-    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: REASONS.hard2 }
+    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reduced: true, reason: REASONS.hard2 }
   }
   if (isEasy(last) && isEasy(prev)) {
     return isEasy(prev2)

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { seedExercises } from '../db/seedExercises'
 import type { Profile } from '../db/types'
 import { buildSkeleton } from './skeleton'
+import { COACH_REPLY_SCHEMA } from '../../api/_lib/schema'
 import { parseCoachReply, toProposal } from './response'
 
 const valid = {
@@ -17,6 +18,28 @@ const valid = {
 }
 
 describe('parseCoachReply', () => {
+  it('種目の adjust（重さ・回数・セット数を上げる／下げる）を受け取る。知らない値は捨て、空なら入れない', () => {
+    const withAdjust = (adjust: unknown) => {
+      const v = structuredClone(valid) as unknown as { proposal: { days: { exercises: Record<string, unknown>[] }[] } }
+      v.proposal.days[0].exercises[0].adjust = adjust
+      return parseCoachReply(v).proposal!.days[0].exercises[0]
+    }
+    expect(withAdjust({ load: 'up' }).adjust).toEqual({ load: 'up' })
+    expect(withAdjust({ load: 'down', reps: 'up', sets: 'down' }).adjust).toEqual({ load: 'down', reps: 'up', sets: 'down' })
+    expect(withAdjust({ load: 'more', reps: 'up' }).adjust).toEqual({ reps: 'up' })
+    expect(withAdjust({ load: 'more' })).not.toHaveProperty('adjust')
+    expect(withAdjust(null)).not.toHaveProperty('adjust')
+    expect(withAdjust('up')).not.toHaveProperty('adjust')
+  })
+
+  it('responseSchema の種目に adjust（load／reps／sets は up か down）がある', () => {
+    const ex = COACH_REPLY_SCHEMA.properties.proposal.properties.days.items.properties.exercises.items
+    expect(ex.properties.adjust.properties.load.enum).toEqual(['up', 'down'])
+    expect(ex.properties.adjust.properties.reps.enum).toEqual(['up', 'down'])
+    expect(ex.properties.adjust.properties.sets.enum).toEqual(['up', 'down'])
+    expect(ex.required).not.toContain('adjust')
+  })
+
   it('正しい形（JSON 文字列でも値でもよい）', () => {
     expect(parseCoachReply(valid)).toEqual(valid)
     expect(parseCoachReply(JSON.stringify(valid))).toEqual(valid)

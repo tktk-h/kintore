@@ -5,7 +5,7 @@ import type { Skeleton } from '../../coach/types'
 import type { MovementPattern, Profile } from '../../db/types'
 import { db } from '../../db/db'
 import { seedExercises } from '../../db/seedExercises'
-import type { SetRecord, Workout, WorkoutExercise } from '../../db/types'
+import type { PlannedWorkout, SetRecord, Workout, WorkoutExercise } from '../../db/types'
 import { newRecord } from '../../lib/records'
 import { listChatMessages } from '../../repo/chat'
 import { getProfile } from '../../repo/profile'
@@ -322,4 +322,76 @@ describe('メニュー案の重さはすべて刻み幅の倍数（ベンチプ�
       })
     }
   }
+})
+
+describe('チャットで重さ・回数・セット数の変更を頼む（adjust）', () => {
+  /** すべての種目に adjust を入れた返事 */
+  function adjusted(adjust: NonNullable<CoachReply['proposal']>['days'][number]['exercises'][number]['adjust']): CoachReply {
+    const r = goodReply()
+    for (const d of r.proposal!.days) for (const x of d.exercises) x.adjust = adjust
+    return { ...r, message: '変えました' }
+  }
+  const dumbbells = new Set(seedExercises().filter((e) => e.equipment === 'dumbbell').map((e) => e.id))
+  const stepOf = (id: string) => (dumbbells.has(id) ? 1 : 2.5)
+  const weighted = (m: { proposal?: { days: { date: string; exercises: { slot: string; exerciseId: string; weight?: number; sets: number }[] }[] } }) =>
+    m.proposal!.days.flatMap((d) => d.exercises.filter((x) => x.weight !== undefined).map((x) => ({ key: `${d.date}|${x.slot}|${x.exerciseId}`, ...x })))
+
+  it('「負荷を上げて」：前の案（反映前）を AI に渡し、adjust load up の種目は前の案より刻み幅1つ（60kg以上は2つ）重くなる', async () => {
+    const first = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
+    const send = vi.fn(async (_b: CoachRequest, _p: string) => adjusted({ load: 'up' }))
+    const m = await askCoach('負荷を上げて', { intent: 'chat', today: TODAY, send })
+    const ctx = JSON.parse(send.mock.calls[0][0].context)
+    expect(ctx.previousProposal.exercises[0]).toEqual({
+      date: NEXT, slot: first.proposal!.days[0].exercises[0].slot, exerciseId: 'ex-bench-press',
+      sets: first.proposal!.days[0].exercises[0].sets, reps: first.proposal!.days[0].exercises[0].reps, weight: 100,
+    })
+    const before = new Map(weighted(first).map((x) => [x.key, x.weight!]))
+    const after = weighted(m)
+    expect(after.length).toBeGreaterThan(0)
+    for (const x of after) {
+      const w = before.get(x.key)!
+      expect(x.weight, x.key).toBe(w + stepOf(x.exerciseId) * (w >= 60 ? 2 : 1))
+    }
+    const bench = m.proposal!.days[0].exercises[0]
+    expect(bench).toMatchObject({ weight: 105, weightReason: 'リクエストで+5kg' })
+  })
+
+  it('「軽くして」：adjust load down の種目は前の案より刻み幅1つ軽くなる', async () => {
+    const first = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
+    const m = await askCoach('軽くして', { intent: 'chat', today: TODAY, send: vi.fn(async () => adjusted({ load: 'down' })) })
+    const before = new Map(weighted(first).map((x) => [x.key, x.weight!]))
+    for (const x of weighted(m)) {
+      const w = before.get(x.key)!
+      expect(x.weight, x.key).toBe(Math.max(stepOf(x.exerciseId), w - stepOf(x.exerciseId)))
+    }
+    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ weight: 97.5, weightReason: 'リクエストで-2.5kg' })
+  })
+
+  it('adjust なしで作り直しても、前の案より重さを下げない', async () => {
+    const first = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
+    // 前の案の重さを手で重くしておく（作り直すと、アプリの計算では軽くなる）
+    const heavier = structuredClone(first.proposal!)
+    for (const d of heavier.days) for (const x of d.exercises) if (x.weight !== undefined) x.weight += 10
+    await db.chatMessages.update(first.id, { proposal: heavier })
+    const m = await askCoach('もう一度作って', { intent: 'chat', today: TODAY, send: vi.fn(async () => goodReply()) })
+    const before = new Map(weighted({ proposal: heavier }).map((x) => [x.key, x.weight!]))
+    for (const x of weighted(m)) expect(x.weight!, x.key).toBeGreaterThanOrEqual(before.get(x.key)!)
+    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ weight: 110, weightReason: '前の案と同じ重さ' })
+  })
+
+  it('反映済みなら、今週・来週のAIの予定を前の案として渡す', async () => {
+    const first = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
+    await db.chatMessages.update(first.id, { appliedAt: 1 })
+    const plan = newRecord<PlannedWorkout>({
+      date: NEXT, title: '上半身', source: 'ai',
+      exercises: [{ exerciseId: 'ex-bench-press', slot: 'upper.1', restSec: 150, sets: [{ weight: 90, reps: 7 }, { weight: 90, reps: 7 }] }],
+    })
+    await db.plannedWorkouts.add(plan)
+    const send = vi.fn(async (_b: CoachRequest, _p: string) => adjusted({ load: 'up' }))
+    const m = await askCoach('負荷を上げて', { intent: 'chat', today: TODAY, send })
+    expect(JSON.parse(send.mock.calls[0][0].context).previousProposal.exercises).toEqual([
+      { date: NEXT, slot: 'upper.1', exerciseId: 'ex-bench-press', sets: 2, reps: 7, weight: 90 },
+    ])
+    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ exerciseId: 'ex-bench-press', weight: 95, reps: 7 })
+  })
 })

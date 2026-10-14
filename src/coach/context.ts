@@ -5,6 +5,7 @@ import {
 } from '../db/types'
 import { addDays, todayKey } from '../lib/dates'
 import { SPLIT_LABELS } from './split'
+import type { PreviousExercise } from './adjust'
 import type { Skeleton } from './types'
 import { muscleSetTarget } from './volume'
 
@@ -41,6 +42,8 @@ export interface BuildCoachRequestArgs {
   intent?: CoachIntent
   /** この日付より前の日は提案しない（今週の見直しで今日を入れる） */
   earliestDate?: string
+  /** 前の案（反映していない一番新しい案、なければ今週・来週のAIの予定）。AIが作り直さずに直すために渡す */
+  previousProposal?: PreviousExercise[]
   /** 記録の要約の基準日（既定は今日） */
   today?: string
 }
@@ -111,6 +114,8 @@ export const COACH_SYSTEM_PROMPT = [
   '- 骨組みの日付・枠・セット数・回数・休憩を守る。セット数は1種目2〜4（ふくらはぎ・腹は3まで、軽めの週は半分）、1日の合計は「1セット約3分」で1回の時間に収める。回数の幅と休憩は、選んだ種目が単関節か複数関節かでアプリが決め直す。',
   '- 部位ごとの週のセット数は目標（主に使う部位1、補助0.5で数える。ふくらはぎ・腹は skeleton.smallMuscleSetTarget）に収める。同じ部位の日の間は48時間以上あける。',
   '- 重さはアプリが計算するので、決めなくてよい。',
+  '- 重さ・回数・セット数を変えてほしいと頼まれたら（「負荷を上げて」「重くして」「軽くして」「回数を増やして」「セットを減らして」など。全部の種目でも、特定の種目・日でも）、対象の種目に adjust を入れる（load：重さ、reps：回数、sets：セット数。それぞれ up か down）。アプリが前の案の値から変えるので、sets・reps の数字はそのままにして adjust で方向だけ伝える。頼まれていないときは adjust を入れない。',
+  '- previousProposal（前の案）があり、それを直すように頼まれたときは、作り直さずに前の案をもとにする：日付・枠・種目・セット数・回数は前の案と同じにし、頼まれたところだけ変える。',
   '- skeleton.deload が true のときは軽めの週（セット数は約半分、重さは据え置き）。message で軽めの週であることと理由（skeleton.deloadReason）を短く伝える。',
   '- 分割法の変更を頼まれたら、requestedSplit にその分割法（full_body／upper_lower／ppl／ul_ppl）を入れ、message で受け付けたことを伝える。このときは proposal を返さない（今の骨組みと違う分割法の案を作らない）。アプリが骨組みを組み直して、もう一度案を頼む。',
   '- proposal の date は YYYY-MM-DD、slot は骨組みの枠のID、exerciseId は候補のID をそのまま使う。',
@@ -154,7 +159,7 @@ export const requestBytes = (r: CoachRequest) => byteLength(JSON.stringify(r))
  * 全体が上限を超えるときは、古い記録 → 古いチャットの順に減らす。
  */
 export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
-  const { profile, skeleton, catalog, existingPlans, previousSlots = {}, userText, intent = 'chat', earliestDate } = args
+  const { profile, skeleton, catalog, existingPlans, previousSlots = {}, userText, intent = 'chat', earliestDate, previousProposal } = args
   const today = args.today ?? todayKey()
   const since = addDays(today, -HISTORY_DAYS)
   const names = new Map(catalog.map((e) => [e.id, e.name]))
@@ -231,6 +236,15 @@ export function buildCoachRequest(args: BuildCoachRequestArgs): CoachRequest {
     slots,
     history: { note: '直近4週間。effort はきつさ（1楽〜5限界）、condition はその日の調子（1〜5）', workouts, missed },
     existingPlans: plans,
+    ...(previousProposal?.length ? {
+      previousProposal: {
+        note: '前のメニュー案（weight は kg。アプリが計算した重さ）。直すように頼まれたら、これをもとに頼まれたところだけ変える',
+        exercises: previousProposal.map((p) => ({
+          date: p.date, ...(p.slot ? { slot: p.slot } : {}), exerciseId: p.exerciseId, sets: p.sets, reps: p.reps,
+          ...(p.weight !== undefined ? { weight: p.weight } : {}),
+        })),
+      },
+    } : {}),
   })
 
   const turns: CoachChatTurn[] = args.chat
