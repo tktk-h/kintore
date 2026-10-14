@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '../../test/user'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { saveBodyLog } from '../../repo/body'
-import { getPlanForDate } from '../../repo/plans'
+import { assignRoutineToDate, getPlanForDate } from '../../repo/plans'
 import { createRoutine } from '../../repo/routines'
 import { setDone, updateExerciseNote } from '../../repo/workoutEdits'
 import { finishWorkout, getWorkoutDetail, startWorkout } from '../../repo/workouts'
@@ -49,5 +49,22 @@ describe('DayDetailPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '予定にする' }))
     expect(await screen.findByText('予定：脚の日')).toBeInTheDocument()
     expect((await getPlanForDate('2026-10-20'))?.title).toBe('脚の日')
+  })
+
+  it('予定の種目を押すと、内容と部位を詳しく見られる', async () => {
+    const r = await createRoutine({
+      name: '胸の日',
+      exercises: [{ exerciseId: 'ex-bench-press', restSec: 120, sets: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 10 }] }],
+    })
+    await assignRoutineToDate(r.id, '2026-10-20')
+    open('2026-10-20')
+    await userEvent.click(await screen.findByRole('button', { name: /ベンチプレス.*10×3/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'ベンチプレス' })
+    expect(sheet).toHaveTextContent('10×3')
+    expect(sheet).toHaveTextContent('60kg')
+    expect(sheet).toHaveTextContent('休憩2分')
+    expect(sheet).toHaveTextContent('水平に押す')
+    expect(sheet).toHaveTextContent('胸')
+    expect(sheet).toHaveTextContent('記録なし')
   })
 })

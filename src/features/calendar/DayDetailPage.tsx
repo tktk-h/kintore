@@ -14,14 +14,15 @@ import { getBodyLog } from '../../repo/body'
 import { assignRoutineToDate, deletePlan, getPlanForDate } from '../../repo/plans'
 import { listRoutines } from '../../repo/routines'
 import { getWorkoutDetail, listWorkoutsByDate, workoutDurationMs, type WorkoutDetail } from '../../repo/workouts'
+import { PlannedExerciseSheet, plannedLine } from './PlannedExerciseSheet'
 
 async function loadDay(date: string) {
   const workouts = await listWorkoutsByDate(date)
   const details = (await Promise.all(workouts.map((w) => getWorkoutDetail(w.id)))).filter((d): d is WorkoutDetail => !!d)
   const body = (await getBodyLog(date)) ?? null
   const plan = (await getPlanForDate(date)) ?? null
-  const planNames = plan ? (await db.exercises.bulkGet(plan.exercises.map((e) => e.exerciseId))).map((e) => e?.name ?? '') : []
-  return { details, body, plan, planNames }
+  const planExercises = plan ? await db.exercises.bulkGet(plan.exercises.map((e) => e.exerciseId)) : []
+  return { details, body, plan, planExercises }
 }
 
 export function DayDetailPage() {
@@ -29,10 +30,11 @@ export function DayDetailPage() {
   const data = useLiveQuery(() => loadDay(date), [date])
   const routines = useLiveQuery(listRoutines)
   const [routineId, setRoutineId] = useState('')
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
   const run = useSafeAction()
 
   if (!data) return <div className="page"><PageHeader backTo="/" title="読み込み中…" /></div>
-  const { details, body, plan, planNames } = data
+  const { details, body, plan, planExercises } = data
   const empty = details.length === 0 && !body && !plan
 
   return (
@@ -124,17 +126,26 @@ export function DayDetailPage() {
         storageKey="day.plan"
         title={plan ? `予定：${plan.title}` : '予定を入れる'}
         titleClassName=""
-        summary={plan ? `${planNames.length}種目` : undefined}
+        summary={plan ? `${plan.exercises.length}種目` : undefined}
       >
         {plan ? (
           <>
-            <ul className="plan-list">
-              {planNames.map((name, i) => (
-                <li key={i}>
-                  {name}
-                </li>
-              ))}
+            <ul className="list plan-list">
+              {plan.exercises.map((pe, i) => {
+                const ex = planExercises[i]
+                return (
+                  <li key={i}>
+                    <button type="button" className="item" onClick={() => setOpenIndex(i)}>
+                      <span>{ex?.name ?? '種目'}</span>
+                      <span className="item-meta num">{plannedLine(pe, ex)}</span>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
+            {openIndex !== null && plan.exercises[openIndex] && (
+              <PlannedExerciseSheet planned={plan.exercises[openIndex]} exercise={planExercises[openIndex]} onClose={() => setOpenIndex(null)} />
+            )}
             <button type="button" className="btn btn-danger" onClick={() => run(() => deletePlan(plan.id))}>
               予定を削除
             </button>
