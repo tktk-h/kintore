@@ -191,4 +191,51 @@ describe('POST /api/coach', () => {
     await POST(req())
     expect(String(fetchMock.mock.calls[0][0])).toContain('/models/gemini-2.5-flash:generateContent')
   })
+
+  it('キーや合言葉の前後の空白・改行は取り除いて使う', async () => {
+    env.GEMINI_API_KEY = `  ${API_KEY}\n`
+    env.COACH_PASSCODE = `${PASSCODE} \n`
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe(API_KEY)
+  })
+
+  it('Gemini の失敗はステータスと理由をログに残す（キーは伏せる）', async () => {
+    fetchMock.mockResolvedValueOnce(gemini(403, { error: { message: `API key ${API_KEY} not valid` } }))
+    const res = await POST(req())
+    expect(res.status).toBe(502)
+    await expectNoSecrets(res)
+    const logged = JSON.stringify((console.error as unknown as ReturnType<typeof vi.fn>).mock.calls)
+    expect(logged).toContain('403')
+    expect(logged).toContain('not valid')
+  })
+
+  it('送信自体が失敗したら、その種類をログに残す', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('bad header'))
+    expect((await POST(req())).status).toBe(502)
+    const logged = JSON.stringify((console.error as unknown as ReturnType<typeof vi.fn>).mock.calls)
+    expect(logged).toContain('fetch failed')
+    expect(logged).toContain('TypeError')
+  })
+
+  it('モデルが見つからない（404）なら、使える Flash モデルを探して送り直す', async () => {
+    env.GEMINI_MODEL = 'gemini-old-flash'
+    fetchMock.mockReset()
+    fetchMock
+      .mockResolvedValueOnce(gemini(404, { error: { message: 'models/gemini-old-flash is not found' } }))
+      .mockResolvedValueOnce(gemini(200, { models: [
+        { name: 'models/gemini-9-pro', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-9-flash-lite', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-9-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-8-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-9-flash-tts', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/text-embedding-9', supportedGenerationMethods: ['embedContent'] },
+      ] }))
+      .mockResolvedValueOnce(geminiOk())
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(String(fetchMock.mock.calls[1][0])).toBe('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000')
+    expect(String(fetchMock.mock.calls[2][0])).toContain('/models/gemini-9-flash:generateContent')
+  })
 })

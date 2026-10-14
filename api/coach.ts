@@ -66,13 +66,14 @@ export async function handleCoach(request: Request): Promise<Response> {
   const raw = await request.text()
   if (new TextEncoder().encode(raw).length > MAX_REQUEST_BYTES) return error(413, MESSAGES.tooLarge)
 
-  const expected = process.env.COACH_PASSCODE
+  // 貼り付けたときに前後の空白・改行が入りやすいので取り除く
+  const expected = process.env.COACH_PASSCODE?.trim()
   if (!expected) return error(500, MESSAGES.config)
   // ヘッダーには Latin-1 しか入らないので、アプリは合言葉を encodeURIComponent して送る
   const given = decodePasscode(request.headers.get(PASSCODE_HEADER))
   if (!given || !(await samePasscode(given, expected))) return error(401, MESSAGES.unauthorized)
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) return error(500, MESSAGES.config)
 
   let body: unknown
@@ -86,13 +87,13 @@ export async function handleCoach(request: Request): Promise<Response> {
 
   try {
     const reply = await callGemini({
-      apiKey, model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), ...req,
+      apiKey, model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), ...req,
     })
     return Response.json(reply)
   } catch (e) {
     if (e instanceof GeminiError) {
-      // 状態だけ記録する（キー・合言葉・本文は出さない）
-      console.error(`coach: gemini ${e.kind}${e.status ? ` ${e.status}` : ''}`)
+      // 状態と理由を記録する（理由のキーは伏せてある。合言葉・本文は出さない）
+      console.error(`coach: gemini ${e.kind}${e.status ? ` ${e.status}` : ''}${e.detail ? ` - ${e.detail}` : ''}`)
       if (e.kind === 'rate_limited') return error(429, MESSAGES.rateLimited)
       return error(502, e.kind === 'invalid' ? MESSAGES.invalid : MESSAGES.upstream)
     }
