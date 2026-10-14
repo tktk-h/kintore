@@ -183,8 +183,31 @@ describe('POST /api/coach', () => {
     expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).generationConfig.thinkingConfig).toBeUndefined()
   })
 
-  it('関数の実行時間の上限は60秒', () => {
-    expect(config).toEqual({ maxDuration: 60 })
+  it('関数の実行時間の上限は300秒（Hobby の最大）', () => {
+    expect(config).toEqual({ maxDuration: 300 })
+  })
+
+  it('Gemini 3 以降のモデルには thinkingBudget ではなく thinkingLevel low を送る', async () => {
+    env.GEMINI_MODEL = 'gemini-3-flash'
+    await POST(req())
+    const sent = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' })
+  })
+
+  it('探して見つけたモデルは覚えておき、次からは最初からそれを使う', async () => {
+    env.GEMINI_MODEL = 'gemini-gone-flash'
+    fetchMock.mockReset()
+    fetchMock
+      .mockResolvedValueOnce(gemini(404, { error: { message: 'not found' } }))
+      .mockResolvedValueOnce(gemini(200, { models: [{ name: 'models/gemini-7-flash', supportedGenerationMethods: ['generateContent'] }] }))
+      .mockResolvedValueOnce(geminiOk())
+      .mockResolvedValueOnce(geminiOk())
+    expect((await POST(req())).status).toBe(200)
+    expect((await POST(req())).status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(String(fetchMock.mock.calls[3][0])).toContain('/models/gemini-7-flash:generateContent')
+    const sent = JSON.parse(String((fetchMock.mock.calls[3][1] as RequestInit).body))
+    expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' })
   })
 
   it('モデルの既定は gemini-2.5-flash', async () => {

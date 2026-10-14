@@ -77,14 +77,18 @@ export function pickFlashModel(list: ModelList): string | undefined {
   return names[0]
 }
 
+/** 見つからなかったモデル名 → 代わりに見つけたモデル名。同じ関数のインスタンスが続く間は探し直さない */
+const resolvedModels = new Map<string, string>()
+
 export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   const { apiKey } = args
-  let res = await generate(args, args.model)
+  let res = await generate(args, resolvedModels.get(args.model) ?? args.model)
 
   // モデルが見つからない（提供が終わった・名前が違う）なら、使える Flash モデルを探して1回だけ送り直す
   if (res.status === 404) {
     const model = await findFlashModel(apiKey)
     if (model && model !== args.model) {
+      resolvedModels.set(args.model, model)
       console.error(`coach: model ${args.model} not found, using ${model}`)
       res = await generate(args, model)
     }
@@ -108,6 +112,14 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   }
 }
 
+/**
+ * 考える量の指定。Gemini 2 系までは thinkingBudget（トークン数）、3 系からは thinkingLevel で指定する。
+ * 3 系は指定しないと一番多く考える（high）ので遅い。メニュー作りは骨組みが決まっているので low で足りる
+ */
+export function thinkingConfigFor(model: string, budget: number | undefined): Record<string, unknown> {
+  return /gemini-[12][.-]/.test(model) ? { thinkingBudget: budget } : { thinkingLevel: 'low' }
+}
+
 /** generateContent を送る。thinkingConfig に対応していないモデルで 400 なら、外して1回だけ送り直す */
 async function generate({ apiKey, system, context, messages, thinkingBudget }: CallGeminiArgs, model: string): Promise<Response> {
   const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`
@@ -118,7 +130,7 @@ async function generate({ apiKey, system, context, messages, thinkingBudget }: C
       responseMimeType: 'application/json',
       responseSchema: COACH_REPLY_SCHEMA,
       temperature: 0.4,
-      ...(withThinking ? { thinkingConfig: { thinkingBudget } } : {}),
+      ...(withThinking ? { thinkingConfig: thinkingConfigFor(model, thinkingBudget) } : {}),
     },
   })
   const post = (withThinking: boolean) =>

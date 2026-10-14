@@ -10,7 +10,7 @@ import { MAX_REQUEST_BYTES, parseCoachRequest, PASSCODE_HEADER } from './_lib/sc
 declare const process: { env: Record<string, string | undefined> }
 
 /** Vercel 関数の設定：AIの返事を待つので実行時間の上限を60秒にする */
-export const config = { maxDuration: 60 }
+export const config = { maxDuration: 300 }
 
 /** GEMINI_THINKING_BUDGET：数（0以上）ならその値、'off' なら送らない、なければ既定 */
 function thinkingBudget(): number | undefined {
