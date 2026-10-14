@@ -101,9 +101,19 @@ describe('decideLoad（設計書「6. きつさによる調整」）', () => {
     expect(decide(h)).toMatchObject({ weight: 62.5 })
   })
 
-  it('すべての判断に理由（日本語）がつく', () => {
-    expect(decide(hist([60, [12, 12, 12], 3])).reason).toMatch(/上げ/)
+  it('すべての判断に短い理由（日本語）がつく', () => {
+    expect(decide(hist([60, [12, 12, 12], 3])).reason).toBe('前回12回×3できたので+2.5kg')
+    expect(decide(hist([60, [8, 7, 6]])).reason).toBe('前回は目標回数に届かなかったので同じ重さ')
     expect(decide(hist([60, [8, 7, 6], 4])).reason).toMatch(/下げ/)
+    expect(decide(hist([60, [12, 12, 12], 2], [60, [10, 10, 10], 1])).reason).toBe('楽な状態が2回続いたので+5kg')
+    expect(decide(hist([60, [12, 12, 12], 4])).reason).toBe('回数には届いたがきつかったので同じ重さ')
+    expect(decide(hist([60, [10, 9, 9], 3])).reason).toBe('同じ重さで回数を1回増やす')
+    expect(decideLoad({ history: [], repRange: range, step, logType: 'weight_reps', baseline: { weight: 80, reps: 5 } }).reason)
+      .toBe('プロフィールの重量から計算')
+    expect(decideLoad({ history: [], repRange: range, step, logType: 'weight_reps', startWeight: 20 }).reason).toBe('初心者の目安の重さ')
+    for (const d of [decide(hist([60, [12, 12, 12], 3])), decide(hist([60, [8, 7, 6], 4])), decide([])]) {
+      expect(d.reason.length).toBeLessThanOrEqual(30)
+    }
   })
 })
 
@@ -230,7 +240,7 @@ describe('defaultWeightFor（記録も重量×回数もないときの初期値�
   it('decideLoad に初期値を渡すとその重さで始める', () => {
     const d = decideLoad({ history: [], repRange: range, step, logType: 'weight_reps', defaultWeight: 5 })
     expect(d).toMatchObject({ weight: 5, reps: 8, setDelta: 0 })
-    expect(d.reason).toContain('5kg')
+    expect(d.reason).toBe('記録がないので軽めの重さ')
   })
 })
 

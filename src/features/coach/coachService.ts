@@ -98,6 +98,7 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
       if (ex.logType !== 'time_distance') next.reps = decision.reps
       if (decision.weight !== undefined) next.weight = decision.weight
       else delete next.weight
+      next.weightReason = decision.reason
       return next
     }),
   }))

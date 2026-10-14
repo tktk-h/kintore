@@ -34,7 +34,11 @@ export interface DoneDay {
   /** 部位ごとのセット数（主1・補助0.5） */
   muscleSets: Partial<Record<Muscle, number>>
 }
-export interface ProposalExercise { slot: string; exerciseId: string; sets: number; reps: number; repRange: [number, number]; restSec: number; weight?: number }
+export interface ProposalExercise {
+  slot: string; exerciseId: string; sets: number; reps: number; repRange: [number, number]; restSec: number; weight?: number
+  /** この重さ・回数にした理由（decideLoad の短い理由。例：「前回8回×3できたので+2.5kg」） */
+  weightReason?: string
+}
 export interface ProposalDay { date: string; title: string; exercises: ProposalExercise[]; note?: string }
 export interface Proposal {
   split: SplitType

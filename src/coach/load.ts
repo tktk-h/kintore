@@ -21,8 +21,32 @@ export interface LoadDecision {
    * （設計書「6. きつさによる調整」：減らすときは2セットより下にしない）
    */
   setDelta: -1 | 0 | 1
+  /** 短い理由（日本語。メニュー案の種目の詳細に「この重さにした理由」として出す） */
   reason: string
 }
+
+/** 理由の文（短く。メニュー案の種目の詳細に出す） */
+export const REASONS = {
+  first: '初めての種目なので回数の下限から',
+  baseline: 'プロフィールの重量から計算',
+  startWeight: '初心者の目安の重さ',
+  light: '記録がないので軽めの重さ',
+  missed3: '同じ重さで3回続けて届かなかったので10%下げる',
+  missedSame: '前回は目標回数に届かなかったので同じ重さ',
+  missed: '前回は目標回数に届かなかったので約5%下げて1セット減',
+  hard2: '限界のきつさが2回続いたので約5%下げて1セット減',
+  hardHold: '回数には届いたがきつかったので同じ重さ',
+  inRange: '同じ重さで回数を1回増やす',
+  timedHard: '限界のきつさが2回続いたので1セット減',
+  timedEasy: '楽な状態が続いたので1セット増',
+  timedSame: '前回と同じ内容',
+  repsReached: '上限の回数まで届いたので同じ回数',
+  repsMore: '前回より回数を1回増やす',
+  repsLess: '前回きつかったので1セット減',
+  repsEasy: '楽な状態が続いたので1セット増',
+} as const
+
+const kg = (n: number) => `${Number(n.toFixed(3))}kg`
 
 /** 記録もプロフィールの重量もないときの初期値（設計書「5. 重さの決め方」3）：複数関節（バーベル・マシン・ケーブルなど） */
 export const DEFAULT_WEIGHT = 20
@@ -134,31 +158,29 @@ function decideUnrounded(args: DecideLoadArgs): LoadDecision {
   const [last, prev, prev2] = history
 
   if (!last) {
-    if (logType !== 'weight_reps') return { reps: low, setDelta: 0, reason: '初めての種目なので、目標回数の下限から始めます。' }
+    if (logType !== 'weight_reps') return { reps: low, setDelta: 0, reason: REASONS.first }
     if (baseline) {
       const weight = roundToStep(estimate1RM(baseline.weight, baseline.reps) * percentForReps(low), step)
-      return { weight, reps: low, setDelta: 0, reason: `今の重量（${baseline.weight}kg×${baseline.reps}回）から、${low}回できる重さを計算しました。` }
+      return { weight, reps: low, setDelta: 0, reason: REASONS.baseline }
     }
     // 丸めて0kgになるときは刻み幅1つ分にする
     const start = (w: number) => Math.max(step, roundToStep(w, step))
     if (startWeight !== undefined && startWeight > 0) {
       const weight = start(startWeight)
-      return { weight, reps: low, setDelta: 0, reason: `記録がないので、初心者の目安の重さ（${weight}kg）で試して、きつさを記録してください。` }
+      return { weight, reps: low, setDelta: 0, reason: REASONS.startWeight }
     }
-    if (defaultWeight === null) return { reps: low, setDelta: 0, reason: '初めての種目なので、目標回数の下限から始めます。' }
-    const weight = start(defaultWeight)
-    return {
-      weight, reps: low, setDelta: 0,
-      reason: `記録がないので、最初は軽めの重さ（${weight}kg）で試して、きつさを記録してください。`,
-    }
+    if (defaultWeight === null) return { reps: low, setDelta: 0, reason: REASONS.first }
+    return { weight: start(defaultWeight), reps: low, setDelta: 0, reason: REASONS.light }
   }
 
   if (logType === 'time_distance') return timedDecision(last, prev, prev2, low)
   const d = progress(last, prev, prev2, repRange, step)
   if (logType === 'reps') {
     // 重さで調整しないので、回数を下限に戻さずに伸ばしていく
-    const reps = outcome(last, repRange) === 'reached' ? high : Math.min(high, Math.max(low, Math.min(...last.repsPerSet) + 1))
-    return { weight: last.weight ? last.weight : undefined, reps, setDelta: d.setDelta, reason: d.reason }
+    const reached = outcome(last, repRange) === 'reached'
+    const reps = reached ? high : Math.min(high, Math.max(low, Math.min(...last.repsPerSet) + 1))
+    const reason = d.setDelta < 0 ? REASONS.repsLess : d.setDelta > 0 ? REASONS.repsEasy : reached ? REASONS.repsReached : REASONS.repsMore
+    return { weight: last.weight ? last.weight : undefined, reps, setDelta: d.setDelta, reason }
   }
   return d
 }
@@ -169,12 +191,12 @@ function decideUnrounded(args: DecideLoadArgs): LoadDecision {
  */
 function timedDecision(last: PastSession, prev: PastSession | undefined, prev2: PastSession | undefined, low: number): LoadDecision {
   if (last.effort === 5 && prev?.effort === 5) {
-    return { reps: low, setDelta: -1, reason: '限界のきつさが2回続いたので、1セット減らします。' }
+    return { reps: low, setDelta: -1, reason: REASONS.timedHard }
   }
   if (isEasy(last) && isEasy(prev) && isEasy(prev2)) {
-    return { reps: low, setDelta: 1, reason: '楽な状態が続いているので、1セット増やします。' }
+    return { reps: low, setDelta: 1, reason: REASONS.timedEasy }
   }
-  return { reps: low, setDelta: 0, reason: '時間の種目なので、前回と同じ内容で続けます。' }
+  return { reps: low, setDelta: 0, reason: REASONS.timedSame }
 }
 
 function progress(
@@ -186,30 +208,27 @@ function progress(
   const nextReps = Math.min(high, Math.max(low, Math.min(...last.repsPerSet) + 1))
   const hold = (reason: string) => ({ weight: w, reps: o === 'reached' ? high : nextReps, setDelta: 0 as const, reason })
   const up = (steps: number, reason: string, setDelta: 0 | 1 = 0) => ({ weight: add(w, step * steps), reps: low, setDelta, reason })
+  // 「前回8回×3できたので+2.5kg」
+  const reachedUp = () => up(1, `前回${Math.min(...last.repsPerSet)}回×${last.repsPerSet.length}できたので+${kg(step)}`)
 
   if (prev && prev2 && [last, prev, prev2].every((s) => s.weight === w && outcome(s, repRange) === 'missed')) {
-    return { weight: reduce(w, 0.1, step), reps: low, setDelta: -1, reason: '同じ重さで3回続けて目標回数に届かなかったので、10%下げてやり直します。' }
+    return { weight: reduce(w, 0.1, step), reps: low, setDelta: -1, reason: REASONS.missed3 }
   }
   if (last.effort === undefined) {
-    return o === 'reached'
-      ? up(1, '前回は全セットで目標回数に届いたので、重さを1段階上げます。')
-      : hold('前回は目標回数に届かなかったので、同じ重さでもう一度挑戦します。')
+    if (o === 'reached') return reachedUp()
+    return hold(o === 'missed' ? REASONS.missedSame : REASONS.inRange)
   }
   if (o === 'missed') {
-    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: '前回は目標回数に届かなかったので、重さを約5%下げて1セット減らします。' }
+    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: REASONS.missed }
   }
   if (last.effort === 5 && prev?.effort === 5) {
-    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: '限界のきつさが2回続いたので、重さを約5%下げて1セット減らします。' }
+    return { weight: reduce(w, 0.05, step), reps: low, setDelta: -1, reason: REASONS.hard2 }
   }
   if (isEasy(last) && isEasy(prev)) {
     return isEasy(prev2)
-      ? up(2, '上げても楽な状態が続いているので、重さを2段階上げて1セット増やします。', 1)
-      : up(2, '楽な状態が2回続いたので、重さを2段階上げます。')
+      ? up(2, `楽な状態が続いたので+${kg(step * 2)}・1セット増`, 1)
+      : up(2, `楽な状態が2回続いたので+${kg(step * 2)}`)
   }
-  if (o === 'reached') {
-    return last.effort <= 3
-      ? up(1, '前回は全セットで目標回数に届いたので、重さを1段階上げます。')
-      : hold('目標回数には届きましたが、きつかったので同じ重さを続けます。')
-  }
-  return hold('同じ重さで、回数を1回ずつ増やしていきます。')
+  if (o === 'reached') return last.effort <= 3 ? reachedUp() : hold(REASONS.hardHold)
+  return hold(REASONS.inRange)
 }

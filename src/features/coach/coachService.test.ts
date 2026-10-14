@@ -72,13 +72,13 @@ describe('askCoach', () => {
     expect(m.proposal?.days.map((d) => d.date)).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23'])
     const bench = m.proposal!.days[0].exercises[0]
     // プロフィールの 100kg×5 → 推定1RM 116.7 × 6回の割合 0.85 → 99.2 → 100
-    expect(bench).toMatchObject({ exerciseId: 'ex-bench-press', repRange: [6, 10], reps: 6, weight: 100 })
+    expect(bench).toMatchObject({ exerciseId: 'ex-bench-press', repRange: [6, 10], reps: 6, weight: 100, weightReason: 'プロフィールの重量から計算' })
     // 記録もプロフィールの重量もない種目は、種目ごとの初心者の目安の重さを刻み幅 2.5 で丸めて試す
     expect(m.proposal!.days[0].exercises[1]).toMatchObject({ exerciseId: 'ex-seated-cable-row', weight: 30 })
     const upper = m.proposal!.days[0].exercises
     expect(upper.find((x) => x.exerciseId === 'ex-side-raise')).toMatchObject({ weight: 5 }) // 4kg → 5kg
     expect(upper.find((x) => x.exerciseId === 'ex-dumbbell-shoulder-press')).toMatchObject({ weight: 7.5 }) // 8kg → 7.5kg
-    expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 15 })
+    expect(upper.find((x) => x.exerciseId === 'ex-triceps-pushdown')).toMatchObject({ weight: 15, weightReason: '初心者の目安の重さ' })
     expect(m.text).toContain('軽め')
     expect(m.proposal!.muscleSets.chest).toBeGreaterThan(0)
 
@@ -269,7 +269,7 @@ describe('メニュー案の重さはすべて刻み幅の倍数（ベンチプ�
   it('手入力した 66.5kg で全セット届いても、次は 69kg ではなく 70kg', async () => {
     await logged('2026-10-12', 'ex-bench-press', 66.5, [10, 10, 10])
     const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send: vi.fn(async () => goodReply()) })
-    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ exerciseId: 'ex-bench-press', weight: 70 })
+    expect(m.proposal!.days[0].exercises[0]).toMatchObject({ exerciseId: 'ex-bench-press', weight: 70, weightReason: '前回10回×3できたので+2.5kg' })
   })
 
   for (const [goal, experience] of [['hypertrophy', 'none'], ['hypertrophy', 'over_3y'], ['strength', 'y1_3']] as const) {
