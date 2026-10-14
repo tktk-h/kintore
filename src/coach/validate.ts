@@ -135,3 +135,19 @@ export function validateProposal(proposal: Proposal, skeleton: Skeleton, catalog
 
   return issues
 }
+
+/**
+ * validateProposal に加えて、今週の見直しでは earliest（組み始める日）より前の日付になっていないかを確かめる。
+ * AIの案のチェックと、メニュー案の種目を直したあとのチェックで使う
+ */
+export function checkProposal(
+  proposal: Proposal, skeleton: Skeleton, catalog: Exercise[], profile: Profile, earliest?: string,
+): string[] {
+  const issues = validateProposal(proposal, skeleton, catalog, profile)
+  if (earliest) {
+    for (const d of proposal.days) {
+      if (d.date < earliest) issues.push(`${formatDateJa(d.date)}は過ぎた日です。${formatDateJa(earliest)}以降の日にしてください。`)
+    }
+  }
+  return issues
+}

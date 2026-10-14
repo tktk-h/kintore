@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../db/db'
 import { resetDb } from '../test/db'
-import { getPreviousSets } from './history'
+import { getLastRecord, getPreviousSets } from './history'
 import { finishWorkout, getWorkoutDetail, startWorkout } from './workouts'
 
 const at = (iso: string) => vi.setSystemTime(new Date(iso))
@@ -31,6 +31,15 @@ describe('getPreviousSets', () => {
     at('2026-10-12T12:00:00')
     expect((await getPreviousSets('ex-squat')).map((s) => s.weight)).toEqual([80])
     expect((await getPreviousSets('ex-squat', new Date('2026-10-10').getTime())).map((s) => s.weight)).toEqual([70])
+  })
+
+  it('getLastRecord は前回の日付と完了セットを返す（なければ undefined）', async () => {
+    expect(await getLastRecord('ex-squat')).toBeUndefined()
+    at('2026-10-08T10:00:00')
+    const a = await startWorkout({ date: '2026-10-08', exercises: [{ exerciseId: 'ex-squat', restSec: 120, sets: [{ weight: 70, reps: 5 }, { weight: 70, reps: 4 }] }] })
+    await finishWithFirstSetDone(a)
+    at('2026-10-12T12:00:00')
+    expect(await getLastRecord('ex-squat')).toEqual({ date: '2026-10-08', sets: [{ weight: 70, reps: 5 }] })
   })
 
   it('終了していないトレーニングは前回に含めない', async () => {

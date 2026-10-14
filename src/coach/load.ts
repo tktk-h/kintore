@@ -1,4 +1,5 @@
-import type { Equipment, LogType, Rating } from '../db/types'
+import type { Equipment, Exercise, LogType, Profile, Rating } from '../db/types'
+import type { ProposalExercise } from './types'
 
 /** その種目の過去1回分の記録 */
 export interface PastSession {
@@ -231,4 +232,40 @@ function progress(
   }
   if (o === 'reached') return last.effort <= 3 ? reachedUp() : hold(REASONS.hardHold)
   return hold(REASONS.inRange)
+}
+
+/** 種目1つの重さと回数を決める材料 */
+export interface LoadInputs {
+  /** 種目ごとの記録（新しい順でなくてよい） */
+  sessions: Record<string, PastSession[]>
+  profile: Pick<Profile, 'baselines'>
+  /** 設定の重量の刻み幅 */
+  step: number
+}
+
+/**
+ * 種目1つの重さと回数（記録 → プロフィールの重量 → 種目の目安の重さ → 初期値）。
+ * AIの案に重さを入れるときと、メニュー案の種目を入れ替えたときに使う
+ */
+export function decideExerciseLoad(ex: Exercise, repRange: [number, number], inputs: LoadInputs): LoadDecision {
+  const baseline = inputs.profile.baselines.find((b) => b.exerciseId === ex.id)
+  return decideLoad({
+    history: inputs.sessions[ex.id] ?? [],
+    repRange,
+    step: inputs.step,
+    baseline: baseline ? { weight: baseline.weight, reps: baseline.reps } : undefined,
+    logType: ex.logType,
+    startWeight: ex.startWeight,
+    defaultWeight: defaultWeightFor(ex),
+  })
+}
+
+/** 決めた重さ・回数・理由を種目に入れる（時間の種目は回数を変えない） */
+export function withLoad<T extends ProposalExercise>(x: T, ex: Exercise, decision: LoadDecision): T {
+  const next = { ...x }
+  if (ex.logType !== 'time_distance') next.reps = decision.reps
+  if (decision.weight !== undefined) next.weight = decision.weight
+  else delete next.weight
+  next.weightReason = decision.reason
+  return next
 }

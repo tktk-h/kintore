@@ -1,13 +1,13 @@
 import type { CoachChatTurn, CoachReply, CoachRequest } from '../../../api/_lib/schema'
 import { buildCoachRequest, type CoachIntent } from '../../coach/context'
-import { decideLoad, defaultWeightFor } from '../../coach/load'
+import { decideExerciseLoad, withLoad, type LoadInputs } from '../../coach/load'
 import { toProposal } from '../../coach/response'
 import { buildSkeleton } from '../../coach/skeleton'
 import type { DoneDay, Proposal, Skeleton } from '../../coach/types'
 import { countMuscleSets } from '../../coach/volume'
-import { validateProposal } from '../../coach/validate'
+import { checkProposal } from '../../coach/validate'
 import type { ChatMessage, Exercise, Profile } from '../../db/types'
-import { addDays, formatDateJa, mondayOf, todayKey } from '../../lib/dates'
+import { addDays, mondayOf, todayKey } from '../../lib/dates'
 import { addChatMessage } from '../../repo/chat'
 import { saveProfile } from '../../repo/profile'
 import { SPLIT_LABELS } from '../../coach/split'
@@ -78,46 +78,21 @@ function skeletonFor(inputs: CoachInputs, profile: Profile, weekStart: string, t
 function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog: Exercise[]): { proposal: Proposal; notes: string[] } {
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const notes = new Set<string>()
+  const load: LoadInputs = { sessions: inputs.sessions, profile, step: inputs.settings.weightStep }
   const days = p.days.map((d) => ({
     ...d,
     exercises: d.exercises.map((x) => {
       const ex = byId.get(x.exerciseId)
       if (!ex) return x
-      const baseline = profile.baselines.find((b) => b.exerciseId === x.exerciseId)
-      const decision = decideLoad({
-        history: inputs.sessions[x.exerciseId] ?? [],
-        repRange: x.repRange,
-        step: inputs.settings.weightStep,
-        baseline: baseline ? { weight: baseline.weight, reps: baseline.reps } : undefined,
-        logType: ex.logType,
-        startWeight: ex.startWeight,
-        defaultWeight: defaultWeightFor(ex),
-      })
-      if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !baseline && decision.weight !== undefined) notes.add(decision.reason)
-      const next = { ...x }
-      if (ex.logType !== 'time_distance') next.reps = decision.reps
-      if (decision.weight !== undefined) next.weight = decision.weight
-      else delete next.weight
-      next.weightReason = decision.reason
-      return next
+      const decision = decideExerciseLoad(ex, x.repRange, load)
+      const hasBaseline = profile.baselines.some((b) => b.exerciseId === x.exerciseId)
+      if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !hasBaseline && decision.weight !== undefined) notes.add(decision.reason)
+      return withLoad(x, ex, decision)
     }),
   }))
   return { proposal: { ...p, days }, notes: notes.size ? ['最初は軽めの重さで試して、きつさを記録してください。'] : [] }
 }
 
-/**
- * validateProposal（種目・枠・値の範囲・日付の重複／骨組みの日かどうか・48時間・時間・週のセット数）に加えて、
- * 今週の見直しでは今日より前の日付になっていないかを確かめる
- */
-function check(p: Proposal, skeleton: Skeleton, inputs: CoachInputs, profile: Profile, earliest?: string): string[] {
-  const issues = validateProposal(p, skeleton, inputs.catalog, profile)
-  if (earliest) {
-    for (const d of p.days) {
-      if (d.date < earliest) issues.push(`${formatDateJa(d.date)}は過ぎた日です。${formatDateJa(earliest)}以降の日にしてください。`)
-    }
-  }
-  return issues
-}
 
 interface Finalized { proposal: Proposal; issues: string[]; notes: string[] }
 
@@ -138,9 +113,12 @@ function finalize(reply: CoachReply, ctx: FinalizeContext): Finalized | undefine
     || (ctx.intent === 'chat' && ctx.thisWeek !== undefined && reply.proposal.days.some((d) => d.date < addDays(thisMonday, 7)))
   const { inputs, skeleton } = forThisWeek && ctx.thisWeek ? ctx.thisWeek : ctx
   const earliest = forThisWeek ? ctx.from : undefined
-  const base = { ...toProposal(reply.proposal, skeleton, inputs.catalog, ctx.profile), deload: skeleton.deload }
+  // 骨組みと組み始める日も残す（あとで種目を直したときに、同じようにチェックし直すため）
+  const base: Proposal = {
+    ...toProposal(reply.proposal, skeleton, inputs.catalog, ctx.profile), deload: skeleton.deload, skeleton, ...(earliest ? { earliest } : {}),
+  }
   const { proposal, notes } = applyLoads(base, inputs, ctx.profile, inputs.catalog)
-  return { proposal, issues: check(proposal, skeleton, inputs, ctx.profile, earliest), notes }
+  return { proposal, issues: checkProposal(proposal, skeleton, inputs.catalog, ctx.profile, earliest), notes }
 }
 
 /**

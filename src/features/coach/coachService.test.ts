@@ -69,6 +69,8 @@ describe('askCoach', () => {
     expect(m.role).toBe('coach')
     expect(m.proposal?.issues).toEqual([])
     expect(m.proposal?.deload).toBe(false)
+    // あとで種目を直したときにチェックし直せるよう、骨組みを残す
+    expect(m.proposal?.skeleton?.days.map((d) => d.date)).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23'])
     expect(m.proposal?.days.map((d) => d.date)).toEqual(['2026-10-19', '2026-10-20', '2026-10-22', '2026-10-23'])
     const bench = m.proposal!.days[0].exercises[0]
     // プロフィールの 100kg×5 → 推定1RM 116.7 × 6回の割合 0.85 → 99.2 → 100

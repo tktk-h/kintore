@@ -48,4 +48,8 @@ export interface Proposal {
   muscleSets: Partial<Record<Muscle, number>>
   /** 軽めの週（骨組みから）。反映するとき予定に印をつける */
   deload?: boolean
+  /** 案をチェックした骨組み（種目を直したあとにチェックし直す・入れ替えの候補を出すのに使う） */
+  skeleton?: Skeleton
+  /** 今週の見直しで組み始めた日（これより前の日付は問題にする） */
+  earliest?: string
 }
