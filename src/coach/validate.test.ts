@@ -256,3 +256,15 @@ describe('checkProposalIssues：作り直しを頼むほどの問題（serious�
     expect(issues.every((x) => !x.serious)).toBe(true)
   })
 })
+
+describe('枠に合わない種目は serious', () => {
+  it('胸の枠に脚の種目・骨組みにない枠は作り直しを頼む。48時間の問題は軽いまま', () => {
+    const p = valid()
+    p.days[0].exercises[0].exerciseId = 'ex-squat' // 水平に押す枠にスクワット
+    p.days[0].exercises[1].slot = 'nope.1'
+    const issues = checkProposalIssues(p, skeleton, catalog, profile())
+    expect(issues.find((x) => x.text.includes('枠の動き'))?.serious).toBe(true)
+    expect(issues.find((x) => x.text.includes('骨組みにありません'))?.serious).toBe(true)
+    for (const x of issues.filter((i) => i.text.includes('48時間'))) expect(x.serious).toBe(false)
+  })
+})

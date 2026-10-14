@@ -12,7 +12,7 @@ const OVER_RATIO = 1.5
 
 /**
  * メニュー案の問題1つ。serious は、AIに作り直しを頼むほどの問題（候補にない種目、日付の間違い・重複・抜け、
- * セット数・回数の範囲外）。それ以外（枠の動き・48時間・1日の時間・週のセット数・休憩など）は軽い問題で、
+ * セット数・回数の範囲外、枠の動きに合わない種目・骨組みにない枠）。それ以外（48時間・1日の時間・週のセット数・休憩など）は軽い問題で、
  * 作り直しは頼まずにカードの注意点に出すだけにする（無料枠の呼び出し回数を減らすため）
  */
 export interface ProposalIssue { text: string; serious: boolean }
@@ -83,10 +83,10 @@ export function validateProposalIssues(proposal: Proposal, skeleton: Skeleton, c
       } else {
         const slot = findSlot(day.date, x.slot)
         if (!slot) {
-          minor(`${where}の枠は骨組みにありません。骨組みの枠から選んでください。`)
+          serious(`${where}の枠は骨組みにありません。骨組みの枠から選んでください。`)
         } else if (!e.pattern || !slot.patterns.includes(e.pattern)) {
           const want = slot.patterns.map((p) => MOVEMENT_PATTERN_LABELS[p]).join('か')
-          minor(`${where}は枠の動き（${want}）に合いません。`)
+          serious(`${where}は枠の動き（${want}）に合いません。`)
         }
         if (e.pattern !== 'cardio') for (const m of e.primary ?? []) muscles.add(m)
       }

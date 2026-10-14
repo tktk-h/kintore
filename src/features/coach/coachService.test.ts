@@ -138,6 +138,16 @@ describe('askCoach', () => {
     expect(m.proposal?.issues.join()).toContain('1回の時間')
   })
 
+  it('枠の動きに合わない種目（胸の枠に脚の種目）は作り直しを頼む', async () => {
+    const r = goodReply()
+    r.proposal!.days[0].exercises[0].exerciseId = 'ex-leg-press'
+    const send = vi.fn<(b: CoachRequest, p: string) => Promise<CoachReply>>().mockResolvedValueOnce(r).mockResolvedValueOnce(goodReply())
+    const m = await askCoach('来週のメニューを作って', { intent: 'next_week', today: TODAY, send })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls[1][0].messages.at(-1)?.text).toContain('枠の動き')
+    expect(m.proposal?.issues).toEqual([])
+  })
+
   it('セット数・回数の範囲外は作り直しを頼む', async () => {
     const r = goodReply()
     r.proposal!.days[0].exercises[0].sets = 12

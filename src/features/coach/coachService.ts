@@ -176,7 +176,7 @@ export async function askCoach(userText: string, opts: AskCoachOptions): Promise
   const round = async (request: CoachRequest, ctx: FinalizeContext) => {
     let reply = await send(request, passcode)
     let result = finalize(reply, ctx)
-    // 作り直しは、作り直しを頼むほどの問題（候補にない種目・日付の間違い・セット数と回数の範囲外）があるときだけ。
+    // 作り直しは、作り直しを頼むほどの問題（候補にない種目・枠に合わない種目・日付の間違い・セット数と回数の範囲外）があるときだけ。
     // 軽い問題（1日の時間・週のセット数など）は、AIを2回呼ばずに注意点としてカードに出す（無料枠の上限に届きにくくする）
     if (result && result.serious > 0) {
       const fix: CoachChatTurn[] = [
