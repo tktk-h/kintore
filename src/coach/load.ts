@@ -24,14 +24,21 @@ export interface LoadDecision {
   reason: string
 }
 
-/** 記録もプロフィールの重量もないときの初期値（設計書「5. 重さの決め方」3）：複数関節 */
+/** 記録もプロフィールの重量もないときの初期値（設計書「5. 重さの決め方」3）：複数関節（バーベル・マシン・ケーブルなど） */
 export const DEFAULT_WEIGHT = 20
-/** 同じく、単関節やダンベルの種目 */
+/** 同じく、ダンベルの複数関節（片手あたり） */
+export const DEFAULT_DUMBBELL_WEIGHT = 10
+/** 同じく、単関節の種目（器具を問わない） */
 export const DEFAULT_LIGHT_WEIGHT = 5
 
-/** 初期値：複数関節（ダンベル以外）は20kg、単関節やダンベルの種目は5kg */
-export function defaultWeightFor(ex: { compound?: boolean; equipment: Equipment }): number {
-  return ex.compound && ex.equipment !== 'dumbbell' ? DEFAULT_WEIGHT : DEFAULT_LIGHT_WEIGHT
+/**
+ * 初期値：複数関節は20kg（ダンベルは10kg）、単関節は5kg。
+ * 自重の種目と、重さを記録しない種目（回数のみ・時間）は重さを入れない（null）。
+ */
+export function defaultWeightFor(ex: { compound?: boolean; equipment: Equipment; logType: LogType }): number | null {
+  if (ex.logType !== 'weight_reps' || ex.equipment === 'bodyweight') return null
+  if (!ex.compound) return DEFAULT_LIGHT_WEIGHT
+  return ex.equipment === 'dumbbell' ? DEFAULT_DUMBBELL_WEIGHT : DEFAULT_WEIGHT
 }
 
 /** 推定1RM（Epley式：重量×(1＋回数÷30)） */
@@ -81,7 +88,7 @@ const isEasy = (s?: PastSession) => s?.effort !== undefined && s.effort <= 2
  *
  * 記録がないとき（設計書「5. 重さの決め方」）：
  * - プロフィールの「重量×回数」があれば 推定1RM × 目標回数（幅の下限）の割合 を刻み幅で丸める
- * - なければ初期値（defaultWeight。既定は20kg）で軽めに試す
+ * - なければ初期値（defaultWeight。既定は20kg、null なら重さなし）で軽めに試す
  *
  * 記録があるとき（設計書「6. きつさによる調整」の表。直近2回の流れで、上から順に判断）：
  * 1. 同じ重さで3回続けて届かなかった → 10%下げる、1セット減らす
@@ -101,8 +108,8 @@ export function decideLoad(args: {
   step: number
   baseline?: { weight: number; reps: number }
   logType: LogType
-  /** 記録も重量×回数もないときの重さ（defaultWeightFor）。既定は20kg */
-  defaultWeight?: number
+  /** 記録も重量×回数もないときの重さ（defaultWeightFor）。既定は20kg、null なら重さを入れない */
+  defaultWeight?: number | null
 }): LoadDecision {
   const { repRange, step, baseline, logType, defaultWeight = DEFAULT_WEIGHT } = args
   const [low, high] = repRange
@@ -115,6 +122,7 @@ export function decideLoad(args: {
       const weight = roundToStep(estimate1RM(baseline.weight, baseline.reps) * percentForReps(low), step)
       return { weight, reps: low, setDelta: 0, reason: `今の重量（${baseline.weight}kg×${baseline.reps}回）から、${low}回できる重さを計算しました。` }
     }
+    if (defaultWeight === null) return { reps: low, setDelta: 0, reason: '初めての種目なので、目標回数の下限から始めます。' }
     return {
       weight: defaultWeight, reps: low, setDelta: 0,
       reason: `記録がないので、最初は軽めの重さ（${defaultWeight}kg）で試して、きつさを記録してください。`,

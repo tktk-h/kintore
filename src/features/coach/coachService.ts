@@ -92,7 +92,7 @@ function applyLoads(p: Proposal, inputs: CoachInputs, profile: Profile, catalog:
         logType: ex.logType,
         defaultWeight: defaultWeightFor(ex),
       })
-      if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !baseline && ex.logType === 'weight_reps') notes.add(decision.reason)
+      if ((inputs.sessions[x.exerciseId] ?? []).length === 0 && !baseline && decision.weight !== undefined) notes.add(decision.reason)
       const next = { ...x }
       if (ex.logType !== 'time_distance') next.reps = decision.reps
       if (decision.weight !== undefined) next.weight = decision.weight

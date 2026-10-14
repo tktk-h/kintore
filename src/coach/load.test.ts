@@ -182,12 +182,24 @@ describe('decideLoad：時間の種目', () => {
 })
 
 describe('defaultWeightFor（記録も重量×回数もないときの初期値）', () => {
-  it('複数関節は20kg、単関節やダンベルは5kg', () => {
-    expect(defaultWeightFor({ compound: true, equipment: 'barbell' })).toBe(20)
-    expect(defaultWeightFor({ compound: true, equipment: 'machine' })).toBe(20)
-    expect(defaultWeightFor({ compound: false, equipment: 'machine' })).toBe(5)
-    expect(defaultWeightFor({ compound: true, equipment: 'dumbbell' })).toBe(5)
-    expect(defaultWeightFor({ equipment: 'cable' })).toBe(5)
+  it('バーベル・マシン・ケーブルの複数関節は20kg、ダンベルの複数関節は10kg、単関節は5kg、自重はなし', () => {
+    expect(defaultWeightFor({ compound: true, equipment: 'barbell', logType: 'weight_reps' })).toBe(20)
+    expect(defaultWeightFor({ compound: true, equipment: 'machine', logType: 'weight_reps' })).toBe(20)
+    expect(defaultWeightFor({ compound: true, equipment: 'cable', logType: 'weight_reps' })).toBe(20)
+    expect(defaultWeightFor({ compound: true, equipment: 'dumbbell', logType: 'weight_reps' })).toBe(10)
+    expect(defaultWeightFor({ compound: false, equipment: 'machine', logType: 'weight_reps' })).toBe(5)
+    expect(defaultWeightFor({ compound: false, equipment: 'dumbbell', logType: 'weight_reps' })).toBe(5)
+    expect(defaultWeightFor({ compound: false, equipment: 'barbell', logType: 'weight_reps' })).toBe(5)
+    expect(defaultWeightFor({ equipment: 'cable', logType: 'weight_reps' })).toBe(5)
+    expect(defaultWeightFor({ compound: true, equipment: 'bodyweight', logType: 'weight_reps' })).toBeNull()
+    expect(defaultWeightFor({ compound: true, equipment: 'bodyweight', logType: 'reps' })).toBeNull()
+    expect(defaultWeightFor({ compound: false, equipment: 'other', logType: 'reps' })).toBeNull()
+  })
+
+  it('初期値が null（自重など）なら重さを入れず、回数は下限から', () => {
+    const d = decideLoad({ history: [], repRange: range, step, logType: 'weight_reps', defaultWeight: null })
+    expect(d.weight).toBeUndefined()
+    expect(d.reps).toBe(8)
   })
 
   it('decideLoad に初期値を渡すとその重さで始める', () => {
