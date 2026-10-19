@@ -67,4 +67,17 @@ describe('DayDetailPage', () => {
     expect(sheet).toHaveTextContent('胸')
     expect(await within(sheet).findByText('記録なし')).toBeInTheDocument()
   })
+
+  it('予定のトレーニングを始めたあとは、予定の種目は見るだけ', async () => {
+    const r = await createRoutine({ name: '胸の日', exercises: [{ exerciseId: 'ex-bench-press', restSec: 120, sets: [{ weight: 60, reps: 10 }] }] })
+    const plan = await assignRoutineToDate(r.id, '2026-10-20')
+    await startWorkout({ date: '2026-10-20', plan })
+    open('2026-10-20')
+    await userEvent.click(await screen.findByRole('button', { name: /ベンチプレス.*10×1/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'ベンチプレス' })
+    expect(await within(sheet).findByText('始めたトレーニングはトレーニング画面で変えられます')).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: '保存' })).toBeNull()
+    expect(within(sheet).queryByRole('button', { name: 'セット数を増やす' })).toBeNull()
+    expect(within(sheet).queryByRole('button', { name: 'この種目を予定から外す' })).toBeNull()
+  })
 })

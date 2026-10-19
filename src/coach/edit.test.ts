@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { seedExercises } from '../db/seedExercises'
 import type { MovementPattern, Profile } from '../db/types'
-import { recheckProposal, replaceExercise, swapCandidates, swapExercise, swapPatterns } from './edit'
+import { recheckProposal, replaceExercise, sameMovementCandidates, swapCandidates, swapExercise, swapPatterns } from './edit'
 import { buildSkeleton } from './skeleton'
 import type { Proposal, Skeleton } from './types'
 
@@ -119,5 +119,26 @@ describe('種目の入れ替え', () => {
     const dips = catalog.find((e) => e.id === 'ex-dips')!
     const next = swapExercise(p, day, { ...bench, weight: 60 }, dips, profile(), load)
     expect(next.weight).toBeUndefined()
+  })
+})
+
+describe('予定の種目の入れ替え候補', () => {
+  const bench = catalog.find((e) => e.id === 'ex-bench-press')!
+
+  it('プロフィールがなければ同じ動きの種目すべて（今の種目は除く）', () => {
+    const list = sameMovementCandidates(bench, catalog, undefined)
+    expect(list.length).toBeGreaterThan(0)
+    expect(list.every((e) => e.pattern === 'horizontal_push' && e.id !== bench.id)).toBe(true)
+    expect(list.map((e) => e.id)).toContain('ex-dumbbell-press')
+  })
+
+  it('プロフィールがあれば使える器具で絞る', () => {
+    const list = sameMovementCandidates(bench, catalog, profile({ equipment: ['home_dumbbell'] }))
+    expect(list.map((e) => e.id)).toContain('ex-dumbbell-press')
+    expect(list.every((e) => e.equipment === 'dumbbell' || e.equipment === 'bodyweight' || e.equipment === 'other')).toBe(true)
+  })
+
+  it('動きのない種目は候補なし', () => {
+    expect(sameMovementCandidates({ ...bench, pattern: undefined }, catalog, undefined)).toEqual([])
   })
 })

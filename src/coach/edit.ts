@@ -52,3 +52,13 @@ export function swapExercise(
   const next: ProposalExercise = { ...x, exerciseId: ex.id, repRange: [repRange[0], repRange[1]], restSec }
   return withLoad(next, ex, decideExerciseLoad(ex, next.repRange, load))
 }
+
+/**
+ * 予定の種目と同じ動きのほかの種目（削除済みと今の種目は除く）。
+ * プロフィールがあれば使える器具とケガで絞る
+ */
+export function sameMovementCandidates(ex: Exercise, catalog: Exercise[], profile: Profile | undefined): Exercise[] {
+  if (!ex.pattern) return []
+  const list = profile ? candidatesFor([ex.pattern], catalog, profile) : catalog.filter((e) => !e.deleted && e.pattern === ex.pattern)
+  return list.filter((e) => e.id !== ex.id)
+}

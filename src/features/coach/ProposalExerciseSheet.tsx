@@ -2,21 +2,18 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeftRight, Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
-import { Stepper } from '../../components/Stepper'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { MANUAL_WEIGHT_REASON, recheckProposal, replaceExercise, swapCandidates, swapExercise } from '../../coach/edit'
 import type { ProposalExercise } from '../../coach/types'
-import { LIMITS } from '../../coach/validate'
-import { DEFAULT_SETTINGS, EQUIPMENT_LABELS, MOVEMENT_PATTERN_LABELS, MUSCLE_LABELS, type ChatMessage, type Exercise, type Muscle } from '../../db/types'
+import { MOVEMENT_PATTERN_LABELS, MUSCLE_LABELS, type ChatMessage, type Exercise, type Muscle } from '../../db/types'
 import { formatDateJa, mondayOf, todayKey } from '../../lib/dates'
-import { weightStepFor } from '../../lib/weightStep'
 import { formatSets } from '../../lib/workoutStats'
 import { updateProposal } from '../../repo/chat'
 import { loadCoachInputs, type CoachInputs } from '../../repo/coachData'
 import { getLastRecord } from '../../repo/history'
 import { getProfile } from '../../repo/profile'
-import { getSettings } from '../../repo/settings'
-import { exerciseLine, formatRest, hasWeight } from './proposalFormat'
+import { ExerciseEditFields, SwapCandidateList } from './ExerciseEditFields'
+import { exerciseLine, formatRest } from './proposalFormat'
 
 interface Props {
   message: ChatMessage
@@ -28,7 +25,6 @@ interface Props {
 }
 
 const muscles = (list: Muscle[] | undefined) => (list?.length ? list.map((m) => MUSCLE_LABELS[m]).join('・') : 'なし')
-const clampInt = (v: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, Math.round(v)))
 
 /**
  * メニュー案の種目の詳細と、反映前に直すシート（設計書「メニュー案カード」）。
@@ -47,7 +43,6 @@ export function ProposalExerciseSheet({ message, dayIndex, exIndex, catalog, onC
   const [swapping, setSwapping] = useState(false)
   const [saving, setSaving] = useState(false)
   const [inputs, setInputs] = useState<CoachInputs>()
-  const settings = useLiveQuery(getSettings)
   const last = useLiveQuery(async () => (await getLastRecord(draft.exerciseId)) ?? null, [draft.exerciseId])
   const byId = new Map(catalog.map((e) => [e.id, e]))
   const ex = byId.get(draft.exerciseId)
@@ -124,54 +119,16 @@ export function ProposalExerciseSheet({ message, dayIndex, exIndex, catalog, onC
         <p className="muted">反映済みのメニュー案なので、ここでは直せません。</p>
       ) : (
         <>
-          <div className="ex-edit">
-            <div className="ex-edit-row">
-              <span>セット数</span>
-              <Stepper label="セット数" unit="セット" step={1} min={LIMITS.sets[0]} max={LIMITS.sets[1]} value={draft.sets}
-                onChange={(v) => set({ sets: clampInt(v, LIMITS.sets) })} />
-            </div>
-            {ex?.logType !== 'time_distance' && (
-              <div className="ex-edit-row">
-                <span>回数</span>
-                <Stepper label="回数" unit="回" step={1} min={LIMITS.reps[0]} max={LIMITS.reps[1]} value={draft.reps}
-                  onChange={(v) => set({ reps: clampInt(v, LIMITS.reps) })} />
-              </div>
-            )}
-            {hasWeight(ex) && (
-              <div className="ex-edit-row">
-                <span>重さ</span>
-                <Stepper label="重さ" unit="kg" step={weightStepFor(settings ?? DEFAULT_SETTINGS, ex?.equipment)} value={draft.weight ?? 0}
-                  onChange={(weight) => set({ weight, weightReason: MANUAL_WEIGHT_REASON })} />
-              </div>
-            )}
-            <div className="ex-edit-row">
-              <span>休憩</span>
-              <Stepper label="休憩" unit="秒" step={15} min={LIMITS.restSec[0]} max={LIMITS.restSec[1]} value={draft.restSec}
-                onChange={(v) => set({ restSec: clampInt(v, LIMITS.restSec) })} />
-            </div>
+          <ExerciseEditFields exercise={ex} values={draft}
+            onChange={(patch) => set(patch.weight !== undefined ? { ...patch, weightReason: MANUAL_WEIGHT_REASON } : patch)}>
             <p className="muted num">回数の目安 {draft.repRange[0]}〜{draft.repRange[1]}回 ・ 休憩{formatRest(draft.restSec)}</p>
-          </div>
+          </ExerciseEditFields>
 
           <button type="button" className="btn btn-block" aria-expanded={swapping} disabled={!profile} onClick={() => setSwapping((s) => !s)}>
             <ArrowLeftRight aria-hidden="true" />
             種目を入れ替える
           </button>
-          {swapping && (
-            candidates.length === 0 ? (
-              <p className="muted">入れ替えられる種目がありません。</p>
-            ) : (
-              <ul className="list" aria-label="入れ替える種目">
-                {candidates.map((c) => (
-                  <li key={c.id}>
-                    <button type="button" className="item" onClick={() => swap(c)}>
-                      <span>{c.name}</span>
-                      <span className="item-meta">{EQUIPMENT_LABELS[c.equipment]}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )
-          )}
+          {swapping && <SwapCandidateList candidates={candidates} onPick={swap} />}
 
           <button type="button" className="btn btn-primary btn-block" disabled={saving} onClick={() => void save()}>
             <Check aria-hidden="true" />

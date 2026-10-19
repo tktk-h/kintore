@@ -223,6 +223,23 @@ input[type='file']::file-selector-button {
 .plan-list { list-style: none; margin: 0; padding: 0; counter-reset: plan; display: flex; flex-direction: column; }
 .plan-list li { counter-increment: plan; display: flex; align-items: center; gap: var(--s-3); padding: 9px 0; border-top: 1px solid var(--line); color: var(--text-2); font-weight: 600; }
 .plan-list li:first-child { border-top: none; }
+/* 押せる予定の種目の行（ホーム） */
+.plan-row {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.plan-row:active { opacity: 0.7; }
 .plan-list li::before {
   content: counter(plan);
   flex-shrink: 0;

@@ -144,7 +144,7 @@ export function DayDetailPage() {
               })}
             </ul>
             {openIndex !== null && plan.exercises[openIndex] && (
-              <PlannedExerciseSheet planned={plan.exercises[openIndex]} exercise={planExercises[openIndex]} onClose={() => setOpenIndex(null)} />
+              <PlannedExerciseSheet plan={plan} index={openIndex} onClose={() => setOpenIndex(null)} />
             )}
             <button type="button" className="btn btn-danger" onClick={() => run(() => deletePlan(plan.id))}>
               予定を削除

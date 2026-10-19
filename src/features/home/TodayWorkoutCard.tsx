@@ -21,6 +21,7 @@ import {
   toPlannedExercises,
   type StartWorkoutOptions,
 } from '../../repo/workouts'
+import { PlannedExerciseSheet, plannedLine } from '../calendar/PlannedExerciseSheet'
 import { RoutinePickerDialog } from './RoutinePickerDialog'
 
 async function loadToday(date: string) {
@@ -32,14 +33,15 @@ async function loadToday(date: string) {
   const summary = finishedDetail ? await summarizeWorkout(finishedDetail) : undefined
   const plan = await getPlanForDate(date)
   const planDone = plan !== undefined && finished.some((w) => w.plannedWorkoutId === plan.id)
-  const planNames = plan ? (await db.exercises.bulkGet(plan.exercises.map((e) => e.exerciseId))).map((e) => e?.name ?? '') : []
+  const planExercises = plan ? await db.exercises.bulkGet(plan.exercises.map((e) => e.exerciseId)) : []
   const last = await getLastFinishedWorkout()
-  return { activeDetail, summary, plan: planDone ? undefined : plan, planNames, last }
+  return { activeDetail, summary, plan: planDone ? undefined : plan, planExercises, last }
 }
 
 export function TodayWorkoutCard({ date }: { date: string }) {
   const data = useLiveQuery(() => loadToday(date), [date])
   const [pickingRoutine, setPickingRoutine] = useState(false)
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
   const navigate = useNavigate()
   const run = useSafeAction()
   const timer = useRestTimer()
@@ -47,7 +49,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
   const starting = useRef(false)
 
   if (!data) return null
-  const { activeDetail, summary, plan, planNames, last } = data
+  const { activeDetail, summary, plan, planExercises, last } = data
 
   /** opts を作る処理も含めて1回だけ走らせる */
   const start = async (makeOpts: () => Promise<StartWorkoutOptions | undefined> | StartWorkoutOptions | undefined) => {
@@ -191,11 +193,22 @@ export function TodayWorkoutCard({ date }: { date: string }) {
             <p className="eyebrow">今日の予定</p>
             <p className="plan-title">{plan.title}</p>
             <ul className="plan-list">
-              {planNames.map((name, i) => (
-                <li key={i}>{name}</li>
-              ))}
+              {plan.exercises.map((pe, i) => {
+                const ex = planExercises[i]
+                return (
+                  <li key={i}>
+                    <button type="button" className="plan-row" onClick={() => setOpenIndex(i)}>
+                      <span>{ex?.name ?? '種目'}</span>
+                      <span className="item-meta num">{plannedLine(pe, ex)}</span>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           </div>
+          {openIndex !== null && plan.exercises[openIndex] && (
+            <PlannedExerciseSheet plan={plan} index={openIndex} onClose={() => setOpenIndex(null)} />
+          )}
           <button type="button" className="btn btn-primary btn-block btn-big" onClick={() => start(() => ({ date, plan }))}>
             <Play aria-hidden="true" fill="currentColor" />
             今日のトレーニングを始める
