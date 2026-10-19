@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { ToastProvider } from './components/Toast'
 import { BodyPage } from './features/body/BodyPage'
+import { CalendarPage } from './features/calendar/CalendarPage'
 import { DayDetailPage } from './features/calendar/DayDetailPage'
 import { CoachPage } from './features/coach/CoachPage'
 import { ProfilePage } from './features/coach/ProfilePage'
@@ -26,6 +27,7 @@ export function AppRoutes() {
         <Route path="exercises/new" element={<ExerciseEditPage />} />
         <Route path="exercises/:id" element={<ExerciseEditPage />} />
         <Route path="workout/:id" element={<WorkoutPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
         <Route path="day/:date" element={<DayDetailPage />} />
         <Route path="body" element={<BodyPage />} />
         <Route path="routines" element={<MenuPage />} />

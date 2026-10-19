@@ -1,18 +1,20 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { BODY_PART_COLORS, BODY_PART_LABELS, BODY_PARTS } from '../../db/types'
-import { formatDateJa, monthGrid, WEEKDAYS } from '../../lib/dates'
 import { useToday } from '../../lib/useToday'
 import { getMonthInfo } from '../../repo/calendar'
+import { MonthGrid, WeekdayRow } from './MonthGrid'
 
+/** ホームのカレンダー。1か月分を表示し、矢印で前後の月へ。全体は「すべて見る」から */
 export function Calendar() {
   const [ym, setYm] = useState(() => {
     const now = new Date()
     return { y: now.getFullYear(), m: now.getMonth() }
   })
+  const [showLegend, setShowLegend] = useState(false)
   const info = useLiveQuery(() => getMonthInfo(ym.y, ym.m), [ym.y, ym.m]) ?? {}
   const navigate = useNavigate()
   const today = useToday()
@@ -33,58 +35,44 @@ export function Calendar() {
           カレンダー
         </>
       }
+      actions={
+        <Link to="/calendar" className="cal-see-all">
+          すべて見る
+        </Link>
+      }
     >
-      <div className="calendar-head">
-        <button type="button" aria-label="前の月" onClick={() => shift(-1)}>
-          <ChevronLeft aria-hidden="true" />
-        </button>
-        <h2>
-          {ym.y}年{ym.m + 1}月
-        </h2>
-        <button type="button" aria-label="次の月" onClick={() => shift(1)}>
-          <ChevronRight aria-hidden="true" />
-        </button>
+      <div className="cal-card-head">
+        <h3 className="cal-month-title">
+          {ym.m + 1}月<span className="cal-year">{ym.y}年</span>
+        </h3>
+        <div className="cal-nav">
+          <button type="button" aria-label="前の月" onClick={() => shift(-1)}>
+            <ChevronLeft aria-hidden="true" />
+          </button>
+          <button type="button" aria-label="次の月" onClick={() => shift(1)}>
+            <ChevronRight aria-hidden="true" />
+          </button>
+        </div>
       </div>
-      <div className="calendar-grid">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="calendar-weekday">
-            {w}
-          </div>
-        ))}
-        {monthGrid(ym.y, ym.m)
-          .flat()
-          .map((key, i) =>
-            key === null ? (
-              <div key={`blank-${i}`} />
-            ) : (
-              <button
-                key={key}
-                type="button"
-                className={`calendar-day ${key === today ? 'today' : ''} ${info[key]?.bodyParts.length ? 'has-log' : ''}`}
-                aria-label={formatDateJa(key)}
-                onClick={() => navigate(`/day/${key}`)}
-              >
-                <span>{Number(key.slice(8))}</span>
-                <span className="dots">
-                  {info[key]?.bodyParts.map((p) => <i key={p} style={{ background: BODY_PART_COLORS[p] }} />)}
-                  {info[key]?.hasPlan && <i className="plan-dot" />}
-                </span>
-              </button>
-            ),
-          )}
-      </div>
-      <div className="legend">
-        {BODY_PARTS.map((p) => (
-          <span key={p}>
-            <i style={{ background: BODY_PART_COLORS[p] }} />
-            {BODY_PART_LABELS[p]}
+      <WeekdayRow />
+      <MonthGrid year={ym.y} month={ym.m} info={info} today={today} onSelect={(d) => navigate(`/day/${d}`)} />
+      <button type="button" className="cal-legend-toggle" aria-expanded={showLegend} onClick={() => setShowLegend((s) => !s)}>
+        色の見方
+      </button>
+      {showLegend && (
+        <p className="cal-legend">
+          {BODY_PARTS.map((p) => (
+            <span key={p}>
+              <i style={{ background: BODY_PART_COLORS[p] }} />
+              {BODY_PART_LABELS[p]}
+            </span>
+          ))}
+          <span>
+            <i className="is-plan" />
+            予定
           </span>
-        ))}
-        <span>
-          <i className="plan-dot" style={{ border: '1.5px solid currentColor' }} />
-          予定
-        </span>
-      </div>
+        </p>
+      )}
     </CollapsibleCard>
   )
 }
