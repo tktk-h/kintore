@@ -3,16 +3,18 @@ import { CalendarCheck, CalendarDays, Check, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { CollapsibleCard } from '../../components/CollapsibleCard'
+import { DayGroup } from '../../components/DayGroup'
 import { Dialog } from '../../components/Dialog'
+import { ExerciseRow, ExerciseRows } from '../../components/ExerciseRow'
 import { useSafeAction, useToast } from '../../components/Toast'
 import { SPLIT_LABELS } from '../../coach/split'
-import { MUSCLE_LABELS, MUSCLES, type ChatMessage, type PlannedWorkout } from '../../db/types'
-import { formatDateJa, todayKey } from '../../lib/dates'
+import { BODY_PART_COLORS, BODY_PART_LABELS, MUSCLE_LABELS, MUSCLES, type ChatMessage, type PlannedWorkout } from '../../db/types'
+import { formatDateJa, formatDateShort, todayKey } from '../../lib/dates'
 import { ALL_PAST_MESSAGE, applicableDays, applyProposal } from '../../repo/applyProposal'
 import { listExercises } from '../../repo/exercises'
 import { getPlanForDate } from '../../repo/plans'
 import { ProposalExerciseSheet } from './ProposalExerciseSheet'
-import { exerciseLine } from './proposalFormat'
+import { daySummary, exerciseLine, volumeText, weightText } from './proposalFormat'
 
 /** チャットのメニュー案カード（設計書「メニュー案カード」） */
 export function ProposalCard({ message }: { message: ChatMessage }) {
@@ -65,52 +67,61 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
         </>
       }
     >
-      <p className="proposal-split">
-        <span>{splitLabel}</span>
-        {proposal.deload && <span className="proposal-badge">軽めの週</span>}
-      </p>
-      {proposal.days.map((d, di) => (
-        <section key={d.date} className="proposal-day" aria-label={`${formatDateJa(d.date)} ${d.title}`}>
-          <h3 className="proposal-day-head">
-            <span className="num">{formatDateJa(d.date)}</span>
-            <span className="proposal-day-title">{d.title}</span>
-          </h3>
-          <ul className="proposal-exercises">
-            {d.exercises.map((x, xi) => {
-              const ex = byId.get(x.exerciseId)
-              const name = exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')
-              const line = exerciseLine(x, ex)
-              return (
-                <li key={`${x.slot}-${xi}`}>
-                  <button type="button" className="proposal-ex" aria-label={`${name} ${line}`} onClick={() => setDetail({ day: di, ex: xi })}>
-                    <span className="proposal-ex-name">{name}</span>
-                    <span className="proposal-ex-meta num">{line}</span>
-                  </button>
+      <div className="proposal-strip">
+        <p className="proposal-split">
+          <span>{splitLabel}</span>
+          {proposal.deload && <span className="proposal-badge">軽めの週</span>}
+        </p>
+        {muscles.length > 0 && (
+          <div className="proposal-sets">
+            <span className="proposal-sets-label">週のセット数</span>
+            <ul className="muscle-sets" aria-label="部位ごとの週のセット数">
+              {muscles.map((m) => (
+                <li key={m}>
+                  {MUSCLE_LABELS[m]} <strong className="num">{proposal.muscleSets[m]}</strong>
                 </li>
-              )
-            })}
-          </ul>
-          {d.note && <p className="muted">{d.note}</p>}
-        </section>
-      ))}
-      {muscles.length > 0 && (
-        <div className="stack-sm">
-          <h3 className="proposal-sub">部位ごとの週のセット数</h3>
-          <ul className="muscle-sets">
-            {muscles.map((m) => (
-              <li key={m}>
-                {MUSCLE_LABELS[m]} <strong className="num">{proposal.muscleSets[m]}</strong>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {proposal.reasons && (
-        <div className="stack-sm">
-          <h3 className="proposal-sub">理由</h3>
-          <p className="proposal-text">{proposal.reasons}</p>
-        </div>
-      )}
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      <div className="proposal-days">
+        {proposal.days.map((d, di) => {
+          const parts = [...new Set(d.exercises.map((x) => byId.get(x.exerciseId)?.bodyPart).filter((p) => p !== undefined))]
+          return (
+            <DayGroup
+              key={d.date}
+              storageKey={`coach.proposal.${message.id}.${d.date}`}
+              defaultCollapsed={di > 0}
+              date={formatDateShort(d.date)}
+              title={d.title}
+              tags={parts.map((p) => ({ label: BODY_PART_LABELS[p], color: BODY_PART_COLORS[p] }))}
+              summary={daySummary(d.exercises)}
+              label={`${formatDateJa(d.date)} ${d.title}`}
+            >
+              <ExerciseRows>
+                {d.exercises.map((x, xi) => {
+                  const ex = byId.get(x.exerciseId)
+                  const name = exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')
+                  return (
+                    <ExerciseRow
+                      key={`${x.slot}-${xi}`}
+                      name={name}
+                      volume={volumeText(x, ex)}
+                      weight={weightText(x, ex)}
+                      color={ex && BODY_PART_COLORS[ex.bodyPart]}
+                      ariaLabel={`${name} ${exerciseLine(x, ex)}`}
+                      onClick={() => setDetail({ day: di, ex: xi })}
+                    />
+                  )
+                })}
+              </ExerciseRows>
+              {d.note && <p className="muted proposal-note">{d.note}</p>}
+            </DayGroup>
+          )
+        })}
+      </div>
+      {proposal.reasons && <Reasons text={proposal.reasons} />}
       {proposal.issues.length > 0 && (
         <div className="proposal-issues">
           <h3 className="proposal-sub">
@@ -183,5 +194,22 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
         </Dialog>
       )}
     </CollapsibleCard>
+  )
+}
+
+/** 理由（長いときは2行に縮めて「続きを読む」） */
+function Reasons({ text }: { text: string }) {
+  const long = text.length > 50 || text.includes('\n')
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="proposal-reasons">
+      <h3 className="proposal-sub">理由</h3>
+      <p className={`proposal-text ${long && !open ? 'is-clamped' : ''}`.trim()}>{text}</p>
+      {long && (
+        <button type="button" className="proposal-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? 'たたむ' : '続きを読む'}
+        </button>
+      )}
+    </div>
   )
 }

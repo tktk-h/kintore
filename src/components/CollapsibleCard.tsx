@@ -3,21 +3,33 @@ import { useState, type ReactNode } from 'react'
 
 const STORAGE_PREFIX = 'kintore.collapsed.'
 
-function loadCollapsed(key: string): boolean {
+function loadCollapsed(key: string, defaultCollapsed: boolean): boolean {
   try {
-    return localStorage.getItem(STORAGE_PREFIX + key) === '1'
+    const v = localStorage.getItem(STORAGE_PREFIX + key)
+    return v === null ? defaultCollapsed : v === '1'
   } catch {
-    return false
+    return defaultCollapsed
   }
 }
 
-function saveCollapsed(key: string, collapsed: boolean): void {
+function saveCollapsed(key: string, collapsed: boolean, defaultCollapsed: boolean): void {
   try {
-    if (collapsed) localStorage.setItem(STORAGE_PREFIX + key, '1')
-    else localStorage.removeItem(STORAGE_PREFIX + key)
+    if (collapsed === defaultCollapsed) localStorage.removeItem(STORAGE_PREFIX + key)
+    else localStorage.setItem(STORAGE_PREFIX + key, collapsed ? '1' : '0')
   } catch {
     // 保存できなくても開け閉めはできる
   }
+}
+
+/** たたんだかどうかを端末に覚えておく。覚えていなければ defaultCollapsed */
+export function usePersistentCollapsed(storageKey: string, defaultCollapsed = false): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(() => loadCollapsed(storageKey, defaultCollapsed))
+  const toggle = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    saveCollapsed(storageKey, next, defaultCollapsed)
+  }
+  return [collapsed, toggle]
 }
 
 interface Props {
@@ -60,13 +72,8 @@ export function CollapsibleCard({
   ariaLabel,
   children,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(() => loadCollapsed(storageKey))
+  const [collapsed, toggle] = usePersistentCollapsed(storageKey)
   const name = label ?? (typeof title === 'string' ? title : '')
-  const toggle = () => {
-    const next = !collapsed
-    setCollapsed(next)
-    saveCollapsed(storageKey, next)
-  }
   return (
     <section className={`card collapsible ${collapsed ? 'is-collapsed' : ''} ${className}`.trim()} aria-label={ariaLabel}>
       <div className="collapsible-head">

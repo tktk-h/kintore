@@ -20,6 +20,12 @@ export function formatDateJa(key: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日(${WEEKDAYS[d.getDay()]})`
 }
 
+/** 短い日付：10/19(月) */
+export function formatDateShort(key: string): string {
+  const d = parseDateKey(key)
+  return `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`
+}
+
 /** month は 0〜11。月の外側のマスは null */
 export function monthGrid(year: number, month: number): (string | null)[][] {
   const firstDay = new Date(year, month, 1).getDay()

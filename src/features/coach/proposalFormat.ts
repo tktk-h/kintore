@@ -19,3 +19,21 @@ export function exerciseLine(x: ProposalExercise, ex: Exercise | undefined): str
 
 /** 重さを Stepper で変えられる種目か（重量×回数で、自重でないもの） */
 export const hasWeight = (ex: Exercise | undefined) => ex?.logType === 'weight_reps' && ex.equipment !== 'bodyweight'
+
+/** 行の右側の量：「10×3」（時間の種目は「3セット」） */
+export function volumeText(x: ProposalExercise, ex: Exercise | undefined): string {
+  return ex?.logType === 'time_distance' ? `${x.sets}セット` : `${x.reps}×${x.sets}`
+}
+
+/** 行の右端の重さ：「60kg」（重さがない・自重・時間の種目は undefined） */
+export function weightText(x: ProposalExercise, ex: Exercise | undefined): string | undefined {
+  if (x.weight === undefined || ex?.logType === 'time_distance' || ex?.equipment === 'bodyweight') return undefined
+  return `${x.weight}kg`
+}
+
+/** 1日のまとめ：「7種目・約55分」（1セット3分で見積もり、5分単位） */
+export function daySummary(exercises: ProposalExercise[]): string {
+  const sets = exercises.reduce((n, x) => n + x.sets, 0)
+  const min = Math.round((sets * 3) / 5) * 5
+  return `${exercises.length}種目・約${min}分`
+}

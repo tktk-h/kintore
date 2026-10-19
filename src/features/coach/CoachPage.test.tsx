@@ -5,7 +5,7 @@ import type { CoachReply } from '../../../api/_lib/schema'
 import { buildSkeleton } from '../../coach/skeleton'
 import type { Skeleton } from '../../coach/types'
 import type { MovementPattern, Profile } from '../../db/types'
-import { addDays, formatDateJa, mondayOf, todayKey } from '../../lib/dates'
+import { addDays, formatDateJa, formatDateShort, mondayOf, todayKey } from '../../lib/dates'
 import type { Proposal } from '../../coach/types'
 import { addChatMessage, listChatMessages } from '../../repo/chat'
 import { getPlanForDate } from '../../repo/plans'
@@ -99,7 +99,7 @@ describe('CoachPage', () => {
     const card = await screen.findByRole('region', { name: 'メニュー案' })
     expect(within(card).getAllByText('上半身・下半身').length).toBeGreaterThan(0)
     const first = skeleton().days[0]
-    expect(within(card).getByText(formatDateJa(first.date))).toBeInTheDocument()
+    expect(within(card).getByText(formatDateShort(first.date))).toBeInTheDocument()
     expect((await within(card).findAllByText('ベンチプレス')).length).toBeGreaterThan(0)
     expect(within(card).getAllByText(/100kg/).length).toBeGreaterThan(0)
     expect(within(card).getByText('前の週と同じ種目を続けます')).toBeInTheDocument()

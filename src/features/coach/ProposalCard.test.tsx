@@ -64,6 +64,54 @@ const benchRow = async (card: HTMLElement) => (await within(card).findAllByRole(
 
 beforeEach(resetDb)
 
+describe('メニュー案の見た目（1行の種目と、たためる日）', () => {
+  it('種目の行に「回数×セット」と重さを出し、最初の日だけ開いている', async () => {
+    const { m, card } = await setup()
+    const days = m.proposal!.days
+    const bench = days[0].exercises[0]
+    const row = await benchRow(card)
+    expect(within(row).getByText(`${bench.reps}×${bench.sets}`)).toBeInTheDocument()
+    expect(within(row).getByText('100kg')).toBeInTheDocument()
+    expect(row).not.toHaveTextContent('休憩')
+
+    const first = within(card).getByRole('region', { name: `${formatDateJa(days[0].date)} ${days[0].title}` })
+    const sets = days[0].exercises.reduce((n, x) => n + x.sets, 0)
+    expect(first).toHaveTextContent(`${days[0].exercises.length}種目・約${Math.round((sets * 3) / 5) * 5}分`)
+    expect(within(first).getByText('胸')).toBeInTheDocument()
+    expect(within(first).getByRole('button', { name: /をたたむ$/ })).toHaveAttribute('aria-expanded', 'true')
+
+    const second = within(card).getByRole('region', { name: `${formatDateJa(days[1].date)} ${days[1].title}` })
+    expect(within(second).queryAllByRole('listitem')).toHaveLength(0)
+    const toggle = within(second).getByRole('button', { name: `「${formatDateJa(days[1].date)} ${days[1].title}」を開く` })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(within(second).getAllByRole('listitem')).toHaveLength(days[1].exercises.length)
+  })
+
+  it('開いた日の行を押すと詳細のシートが開く', async () => {
+    const { m, card } = await setup()
+    const day = m.proposal!.days[1]
+    const second = within(card).getByRole('region', { name: `${formatDateJa(day.date)} ${day.title}` })
+    await userEvent.click(within(second).getByRole('button', { name: /を開く$/ }))
+    const { name } = (await db.exercises.get(day.exercises[0].exerciseId))!
+    await userEvent.click((await within(second).findAllByRole('button', { name: new RegExp(`^${name} `) }))[0])
+    expect(await screen.findByRole('dialog', { name })).toBeInTheDocument()
+  })
+
+  it('長い理由は2行に縮めて「続きを読む」で開く', async () => {
+    const { m, card } = await setup()
+    // goodReply の理由は短いので出ない
+    expect(within(card).queryByRole('button', { name: '続きを読む' })).toBeNull()
+    const long = '前の週と同じ種目を続けます。'.repeat(6)
+    await db.chatMessages.update(m.id, { proposal: { ...m.proposal!, reasons: long } })
+    const more = await within(card).findByRole('button', { name: '続きを読む' })
+    expect(within(card).getByText(long)).toHaveClass('is-clamped')
+    await userEvent.click(more)
+    expect(within(card).getByText(long)).not.toHaveClass('is-clamped')
+    expect(within(card).getByRole('button', { name: 'たたむ' })).toBeInTheDocument()
+  })
+})
+
 describe('メニュー案の種目の詳細と編集', () => {
   it('種目の行はボタンで、名前と内容が読み上げられる', async () => {
     const { m, card } = await setup()
@@ -110,7 +158,7 @@ describe('メニュー案の種目の詳細と編集', () => {
     const row = await benchRow(card)
     await waitFor(() => expect(row).toHaveAccessibleName(`ベンチプレス ${bench.reps}×${bench.sets + 1} ・ 65kg ・ 休憩2分30秒`))
     // 部位ごとの週のセット数も数え直す
-    expect(within(card).getByText('胸').parentElement).toHaveTextContent(`胸 ${chestBefore + 1}`)
+    expect(within(within(card).getByRole('list', { name: '部位ごとの週のセット数' })).getByText('胸').parentElement).toHaveTextContent(`胸 ${chestBefore + 1}`)
     const saved = (await db.chatMessages.get(m.id))!.proposal!
     expect(saved.days[0].exercises[0]).toMatchObject({ sets: bench.sets + 1, weight: 65, weightReason: '自分で変えた重さ' })
     // チェックし直す：1セット増やしたので、この日は1回の時間（60分）を超える
