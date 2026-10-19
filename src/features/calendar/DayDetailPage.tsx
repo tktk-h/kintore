@@ -14,7 +14,8 @@ import { getBodyLog } from '../../repo/body'
 import { assignRoutineToDate, deletePlan, getPlanForDate } from '../../repo/plans'
 import { listRoutines } from '../../repo/routines'
 import { getWorkoutDetail, listWorkoutsByDate, workoutDurationMs, type WorkoutDetail } from '../../repo/workouts'
-import { PlannedExerciseSheet, plannedLine } from './PlannedExerciseSheet'
+import { PlannedExerciseList } from './PlannedExerciseList'
+import { PlannedExerciseSheet } from './PlannedExerciseSheet'
 
 async function loadDay(date: string) {
   const workouts = await listWorkoutsByDate(date)
@@ -130,19 +131,7 @@ export function DayDetailPage() {
       >
         {plan ? (
           <>
-            <ul className="list plan-list">
-              {plan.exercises.map((pe, i) => {
-                const ex = planExercises[i]
-                return (
-                  <li key={i}>
-                    <button type="button" className="item" onClick={() => setOpenIndex(i)}>
-                      <span>{ex?.name ?? '種目'}</span>
-                      <span className="item-meta num">{plannedLine(pe, ex)}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <PlannedExerciseList plan={plan} exercises={planExercises} onOpen={setOpenIndex} />
             {openIndex !== null && plan.exercises[openIndex] && (
               <PlannedExerciseSheet plan={plan} index={openIndex} onClose={() => setOpenIndex(null)} />
             )}

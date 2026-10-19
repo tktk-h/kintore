@@ -21,7 +21,8 @@ import {
   toPlannedExercises,
   type StartWorkoutOptions,
 } from '../../repo/workouts'
-import { PlannedExerciseSheet, plannedLine } from '../calendar/PlannedExerciseSheet'
+import { PlannedExerciseList } from '../calendar/PlannedExerciseList'
+import { PlannedExerciseSheet } from '../calendar/PlannedExerciseSheet'
 import { RoutinePickerDialog } from './RoutinePickerDialog'
 
 async function loadToday(date: string) {
@@ -192,19 +193,7 @@ export function TodayWorkoutCard({ date }: { date: string }) {
           <div className="plan-box">
             <p className="eyebrow">今日の予定</p>
             <p className="plan-title">{plan.title}</p>
-            <ul className="plan-list">
-              {plan.exercises.map((pe, i) => {
-                const ex = planExercises[i]
-                return (
-                  <li key={i}>
-                    <button type="button" className="plan-row" onClick={() => setOpenIndex(i)}>
-                      <span>{ex?.name ?? '種目'}</span>
-                      <span className="item-meta num">{plannedLine(pe, ex)}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <PlannedExerciseList plan={plan} exercises={planExercises} onOpen={setOpenIndex} />
           </div>
           {openIndex !== null && plan.exercises[openIndex] && (
             <PlannedExerciseSheet plan={plan} index={openIndex} onClose={() => setOpenIndex(null)} />

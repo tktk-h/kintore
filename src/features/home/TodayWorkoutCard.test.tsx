@@ -31,6 +31,27 @@ describe('TodayWorkoutCard', () => {
     expect(await screen.findByTestId('current-path')).toHaveTextContent(`/workout/${active.id}`)
   })
 
+  it('予定の種目は1行で名前・回数×セット・重さ、上に種目数と目安の時間を出す', async () => {
+    const r = await createRoutine({
+      name: '胸の日',
+      exercises: [
+        { exerciseId: 'ex-bench-press', restSec: 120, sets: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 10 }] },
+        { exerciseId: 'ex-squat', restSec: 180, sets: [{ weight: 80, reps: 5 }, { weight: 80, reps: 5 }] },
+      ],
+    })
+    await assignRoutineToDate(r.id, TODAY)
+    open()
+    const row = await screen.findByRole('button', { name: 'ベンチプレス 10×3 ・ 60kg ・ 休憩2分' })
+    expect(row).toHaveTextContent('ベンチプレス')
+    expect(row).toHaveTextContent('10×3')
+    expect(row).toHaveTextContent('60kg')
+    expect(row).not.toHaveTextContent('休憩')
+    // 5セット × 3分 = 15分
+    expect(screen.getByText('2種目・約15分')).toBeInTheDocument()
+    expect(screen.getByText('胸')).toBeInTheDocument()
+    expect(screen.getByText('脚')).toBeInTheDocument()
+  })
+
   it('予定がなければ開始方法を選べる', async () => {
     open()
     expect(await screen.findByRole('button', { name: '空から始める' })).toBeInTheDocument()

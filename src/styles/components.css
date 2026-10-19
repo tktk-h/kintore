@@ -219,42 +219,6 @@ input[type='file']::file-selector-button {
 .dialog .list .item { background: var(--surface-2); }
 .item-meta { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--muted); font-size: var(--fs-sub); font-weight: 500; }
 .item-meta svg { width: 18px; height: 18px; color: var(--faint); }
-/* 予定の種目などの番号付き一覧 */
-.plan-list { list-style: none; margin: 0; padding: 0; counter-reset: plan; display: flex; flex-direction: column; }
-.plan-list li { counter-increment: plan; display: flex; align-items: center; gap: var(--s-3); padding: 9px 0; border-top: 1px solid var(--line); color: var(--text-2); font-weight: 600; }
-.plan-list li:first-child { border-top: none; }
-/* 押せる予定の種目の行（ホーム） */
-.plan-row {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-.plan-row:active { opacity: 0.7; }
-.plan-list li::before {
-  content: counter(plan);
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--surface-3);
-  color: var(--muted);
-  font-size: var(--fs-caption);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
 /* 記録したセットの一覧（日の詳細） */
 .set-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .set-list li { padding: 4px 10px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); font-size: var(--fs-sub); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -566,3 +530,8 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .day-group-tags { grid-row: 2; grid-column: 1 / 4; display: flex; flex-wrap: wrap; gap: 4px; }
 .day-tag { padding: 0 6px; border: 1px solid; border-radius: var(--r-pill); font-size: var(--fs-micro); font-weight: 700; line-height: 1.6; }
 .day-group-body { padding-bottom: 6px; }
+
+/* 予定の種目の一覧（PlannedExerciseList）：部位チップと「6種目・約55分」の1行＋種目の行 */
+.planned-summary { display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 2px 4px 4px; }
+.planned-summary .day-group-tags { flex: 1; min-width: 0; }
+.planned-summary-text { margin-left: auto; flex: none; color: var(--muted); font-size: var(--fs-caption); font-weight: 600; white-space: nowrap; }

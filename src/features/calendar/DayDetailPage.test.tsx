@@ -68,6 +68,21 @@ describe('DayDetailPage', () => {
     expect(await within(sheet).findByText('記録なし')).toBeInTheDocument()
   })
 
+  it('予定の種目は1行で回数×セットと重さ、上に種目数と目安の時間を出す', async () => {
+    const r = await createRoutine({
+      name: '胸の日',
+      exercises: [{ exerciseId: 'ex-bench-press', restSec: 120, sets: [{ weight: 60, reps: 10 }, { weight: 60, reps: 10 }, { weight: 60, reps: 10 }] }],
+    })
+    await assignRoutineToDate(r.id, '2026-10-20')
+    open('2026-10-20')
+    const row = await screen.findByRole('button', { name: 'ベンチプレス 10×3 ・ 60kg ・ 休憩2分' })
+    expect(row).toHaveTextContent('10×3')
+    expect(row).toHaveTextContent('60kg')
+    expect(row).not.toHaveTextContent('休憩')
+    expect(screen.getByText('1種目・約10分')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '予定を削除' })).toBeInTheDocument()
+  })
+
   it('予定のトレーニングを始めたあとは、予定の種目は見るだけ', async () => {
     const r = await createRoutine({ name: '胸の日', exercises: [{ exerciseId: 'ex-bench-press', restSec: 120, sets: [{ weight: 60, reps: 10 }] }] })
     const plan = await assignRoutineToDate(r.id, '2026-10-20')

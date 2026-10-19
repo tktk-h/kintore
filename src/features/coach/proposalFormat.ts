@@ -33,7 +33,11 @@ export function weightText(x: ProposalExercise, ex: Exercise | undefined): strin
 
 /** 1日のまとめ：「7種目・約55分」（1セット3分で見積もり、5分単位） */
 export function daySummary(exercises: ProposalExercise[]): string {
-  const sets = exercises.reduce((n, x) => n + x.sets, 0)
-  const min = Math.round((sets * 3) / 5) * 5
-  return `${exercises.length}種目・約${min}分`
+  return workoutSummary(exercises.length, exercises.reduce((n, x) => n + x.sets, 0))
+}
+
+/** 「6種目・約55分」：種目数と合計セット数から（1セット3分で見積もり、5分単位） */
+export function workoutSummary(exerciseCount: number, totalSets: number): string {
+  const min = Math.round((totalSets * 3) / 5) * 5
+  return `${exerciseCount}種目・約${min}分`
 }

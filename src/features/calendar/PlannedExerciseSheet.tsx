@@ -19,13 +19,20 @@ const muscles = (list: Muscle[] | undefined) => (list?.length ? list.map((m) => 
 
 /** 予定の種目の1行の要約：「10×3 ・ 60kg ・ 休憩2分」（回数×セット数） */
 export function plannedLine(pe: PlannedExercise, ex: Exercise | undefined): string {
+  const weight = plannedWeight(pe, ex)
+  return [plannedVolume(pe, ex), ...(weight ? [weight] : []), `休憩${formatRest(pe.restSec)}`].join(' ・ ')
+}
+
+/** 予定の種目の量：「10×3」（回数がない・時間の種目は「3セット」） */
+export function plannedVolume(pe: PlannedExercise, ex: Exercise | undefined): string {
   const first = pe.sets[0]
-  const parts: string[] = []
-  if (ex?.logType === 'time_distance' || first?.reps === undefined) parts.push(`${pe.sets.length}セット`)
-  else parts.push(`${first.reps}×${pe.sets.length}`)
-  if (first?.weight !== undefined && first.weight !== 0 && ex?.logType === 'weight_reps') parts.push(`${first.weight}kg`)
-  parts.push(`休憩${formatRest(pe.restSec)}`)
-  return parts.join(' ・ ')
+  return ex?.logType === 'time_distance' || first?.reps === undefined ? `${pe.sets.length}セット` : `${first.reps}×${pe.sets.length}`
+}
+
+/** 予定の種目の重さ：「60kg」（重さがない・0kg・重量×回数でない種目は undefined） */
+export function plannedWeight(pe: PlannedExercise, ex: Exercise | undefined): string | undefined {
+  const w = pe.sets[0]?.weight
+  return w !== undefined && w !== 0 && ex?.logType === 'weight_reps' ? `${w}kg` : undefined
 }
 
 /** セットごとに重さや回数が違うか */
