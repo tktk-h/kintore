@@ -137,9 +137,11 @@ describe('TodayWorkoutCard', () => {
       expect(within(list).queryByRole('button', { name: /スクワット/ })).toBeNull()
       await userEvent.click(within(list).getByRole('button', { name: /^ダンベルプレス/ }))
       const swapped = await screen.findByRole('dialog', { name: 'ダンベルプレス' })
+      // ベンチの60kgは引き継がず、記録がないのでダンベルプレスの初心者の目安（10kg）になる
+      await waitFor(() => expect(swapped).toHaveTextContent('10kg'))
       await userEvent.click(within(swapped).getByRole('button', { name: '保存' }))
       await waitFor(async () => expect((await getPlanForDate(TODAY))!.exercises[0].exerciseId).toBe('ex-dumbbell-press'))
-      expect((await getPlanForDate(TODAY))!.exercises[0].sets).toEqual([{ weight: 60, reps: 8 }, { weight: 60, reps: 8 }])
+      expect((await getPlanForDate(TODAY))!.exercises[0].sets).toEqual([{ weight: 10, reps: 8 }, { weight: 10, reps: 8 }])
     })
 
     it('確認してから予定から外せる', async () => {

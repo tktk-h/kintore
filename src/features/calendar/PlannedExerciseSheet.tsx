@@ -64,8 +64,12 @@ export function PlannedExerciseSheet({ plan, index, onClose }: Props) {
   const editable = data !== undefined && !data.started
   const candidates = swapping && data && ex ? sameMovementCandidates(ex, data.catalog, data.profile) : []
 
-  const swap = (next: Exercise) => {
-    setDraft((d) => ({ ...d, exerciseId: next.id, weight: hasWeight(next) ? (d.weight ?? next.startWeight ?? 0) : undefined }))
+  /** 入れ替えた種目の重さは、その種目の前回の記録 → 初心者の目安 の順で決める（前の種目の重さは引き継がない） */
+  const swap = async (next: Exercise) => {
+    const lastOfNext = await getLastRecord(next.id)
+    const lastWeight = lastOfNext ? Math.max(0, ...lastOfNext.sets.map((s) => s.weight ?? 0)) || undefined : undefined
+    const weight = hasWeight(next) ? (lastWeight ?? next.startWeight ?? 0) : undefined
+    setDraft((d) => ({ ...d, exerciseId: next.id, weight }))
     setSwapping(false)
   }
 
@@ -135,7 +139,7 @@ export function PlannedExerciseSheet({ plan, index, onClose }: Props) {
             <ArrowLeftRight aria-hidden="true" />
             種目を入れ替える
           </button>
-          {swapping && <SwapCandidateList candidates={candidates} onPick={swap} />}
+          {swapping && <SwapCandidateList candidates={candidates} onPick={(c) => void swap(c)} />}
 
           <button type="button" className="btn btn-primary btn-block" disabled={saving} onClick={() => void save()}>
             <Check aria-hidden="true" />
