@@ -108,6 +108,7 @@ describe('ProfilePage', () => {
 
   it('戻るボタンがある', async () => {
     open()
-    expect(await screen.findByRole('button', { name: '戻る' })).toBeInTheDocument()
+    // 読み込み中の画面の「戻る」は読み込み後に作り直されるので、そのときどきの画面で確かめる
+    await waitFor(() => expect(screen.getByRole('button', { name: '戻る' })).toBeInTheDocument())
   })
 })
