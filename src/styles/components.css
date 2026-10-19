@@ -222,8 +222,6 @@ input[type='file']::file-selector-button {
 /* 記録したセットの一覧（日の詳細） */
 .set-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .set-list li { padding: 4px 10px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); font-size: var(--fs-sub); font-weight: 700; font-variant-numeric: tabular-nums; }
-.day-exercise { padding-top: var(--s-3); border-top: 1px solid var(--line); }
-.day-exercise strong { font-size: var(--fs-body); }
 
 /* ===== 空の状態 ===== */
 .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s-2); padding: var(--s-5) var(--s-4); color: var(--muted); font-size: var(--fs-sub); }
@@ -452,20 +450,20 @@ img.photo { width: 100%; border-radius: var(--r-md); border: 1px solid var(--lin
 .back-btn svg { width: 22px; height: 22px; }
 .back-btn:active { background: var(--surface-2); }
 
-/* ===== 日の詳細：セット一覧 ===== */
-.day-stats { display: flex; flex-wrap: wrap; gap: 4px var(--s-3); margin: 0; color: var(--text-2); font-size: var(--fs-sub); font-variant-numeric: tabular-nums; }
-.day-ex-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
-.day-ex-head strong { min-width: 0; overflow-wrap: anywhere; }
-.day-ex-sum { flex: none; color: var(--muted); font-size: var(--fs-sub); font-variant-numeric: tabular-nums; }
-.day-sets { list-style: none; margin: var(--s-2) 0 0; padding: 0; display: flex; flex-direction: column; }
-.day-set { display: flex; align-items: center; gap: var(--s-3); padding: 6px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-.day-set:first-child { border-top: 0; }
-.day-set-no { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); font-size: var(--fs-caption); font-weight: 700; }
-.day-set-val { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 700; }
-.day-set-mark { flex: none; display: inline-flex; align-items: center; color: var(--ok); }
-.day-set-mark svg { width: 20px; height: 20px; }
-.day-set-todo { color: var(--faint); font-size: var(--fs-caption); }
-.day-set.is-undone .day-set-val { color: var(--faint); font-weight: 500; }
+/* ===== 日の詳細：記録 ===== */
+.day-stats { display: flex; gap: 4px var(--s-3); white-space: nowrap; overflow: hidden; margin: 0; color: var(--text-2); font-size: var(--fs-sub); font-variant-numeric: tabular-nums; }
+/* 日の記録：1種目1行（長ければセットは名前の下へ折り返す） */
+.day-rec { padding: 8px 4px; }
+.day-rec-main { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+.day-rec-name { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sub); font-weight: 700; overflow-wrap: anywhere; }
+.day-rec-sets { flex: 0 1 auto; margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 6px; font-size: var(--fs-sub); font-variant-numeric: tabular-nums; text-align: right; }
+.day-rec-done { font-weight: 700; }
+.day-rec-undone { color: var(--faint); font-size: var(--fs-caption); }
+.day-rec-effort { padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--text-2); font-size: var(--fs-micro); font-weight: 700; line-height: 1.6; }
+.day-rec-note { margin: 2px 0 0 14px; color: var(--muted); font-size: var(--fs-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-rec-foot { display: flex; gap: var(--s-3); margin: 0; color: var(--text-2); font-size: var(--fs-sub); white-space: nowrap; min-width: 0; }
+.day-rec-foot > span { flex: none; }
+.day-rec-foot .day-rec-memo { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 
 /* ===== 一時停止 ===== */
 .badge-paused { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-pill); background: var(--surface-3); color: var(--text-2); }

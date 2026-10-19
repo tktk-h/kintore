@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bestValue, formatSeconds, formatSet, formatSets, isPersonalRecord, totalVolume } from './workoutStats'
+import { bestValue, formatSeconds, formatSet, formatSets, formatSetsCompact, isPersonalRecord, totalVolume } from './workoutStats'
 
 describe('totalVolume', () => {
   it('完了したセットの 重量×回数 を合計する', () => {
@@ -55,5 +55,12 @@ describe('format', () => {
   it('formatSets は同じ重量ならまとめる', () => {
     expect(formatSets('weight_reps', [{ weight: 60, reps: 8 }, { weight: 60, reps: 8 }, { weight: 60, reps: 7 }])).toBe('60kg × 8, 8, 7')
     expect(formatSets('weight_reps', [{ weight: 60, reps: 8 }, { weight: 65, reps: 5 }])).toBe('60kg × 8, 65kg × 5')
+  })
+
+  it('formatSetsCompact は1行に詰める', () => {
+    expect(formatSetsCompact('weight_reps', [{ weight: 60, reps: 8 }, { weight: 60, reps: 8 }, { weight: 60, reps: 7 }])).toBe('60kg × 8・8・7')
+    expect(formatSetsCompact('weight_reps', [{ weight: 60, reps: 8 }, { weight: 62.5, reps: 6 }])).toBe('60kg×8・62.5kg×6')
+    expect(formatSetsCompact('reps', [{ reps: 10 }, { reps: 10 }, { reps: 8 }])).toBe('10・10・8回')
+    expect(formatSetsCompact('time_distance', [{ durationSec: 60 }, { durationSec: 45 }])).toBe('1:00・0:45')
   })
 })

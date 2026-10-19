@@ -1,15 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { CalendarX2, Check } from 'lucide-react'
+import { CalendarX2 } from 'lucide-react'
 import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { EmptyState } from '../../components/EmptyState'
 import { PageHeader } from '../../components/PageHeader'
 import { FACES } from '../../components/RatingPicker'
 import { useSafeAction } from '../../components/Toast'
 import { db } from '../../db/db'
+import { BODY_PART_COLORS } from '../../db/types'
 import { formatDateJa } from '../../lib/dates'
-import { formatSet, totalVolume } from '../../lib/workoutStats'
+import { formatSetsCompact, totalVolume } from '../../lib/workoutStats'
 import { getBodyLog } from '../../repo/body'
 import { assignRoutineToDate, deletePlan, getPlanForDate } from '../../repo/plans'
 import { listRoutines } from '../../repo/routines'
@@ -65,48 +66,33 @@ export function DayDetailPage() {
               <span>{doneCount}セット</span>
               {volume > 0 && <span>総重量 {volume.toLocaleString('en-US')}kg</span>}
             </p>
-            {exercises.map(({ workoutExercise: we, exercise, sets }) => {
-              const doneN = sets.filter((x) => x.done).length
-              const vol = totalVolume([{ logType: exercise.logType, sets }])
-              return (
-                <div key={we.id} className="day-exercise">
-                  <div className="day-ex-head">
-                    <strong>{exercise.name}</strong>
-                    <span className="day-ex-sum">
-                      {doneN}セット{exercise.logType === 'weight_reps' && vol > 0 && ` ${vol.toLocaleString('en-US')}kg`}
-                    </span>
-                  </div>
-                  <ol className="day-sets">
-                    {sets.map((s, i) => (
-                      <li key={s.id} className={`day-set${s.done ? '' : ' is-undone'}`}>
-                        <span className="day-set-no">{i + 1}</span>
-                        <span className="day-set-val">{formatSet(exercise.logType, s)}</span>
-                        {s.done ? (
-                          <span className="day-set-mark" role="img" aria-label="完了">
-                            <Check aria-hidden="true" />
-                          </span>
-                        ) : (
-                          <span className="day-set-todo">未完了</span>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                  {(we.effort !== undefined || we.note) && (
-                    <p className="muted">
-                      {we.effort !== undefined && `きつさ ${we.effort} `}
-                      {we.note}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-            {(workout.condition !== undefined || workout.satisfaction !== undefined) && (
-              <p>
-                {workout.condition !== undefined && `調子 ${FACES[workout.condition - 1]}　`}
-                {workout.satisfaction !== undefined && `満足度 ${workout.satisfaction}`}
+            <ul className="ex-rows">
+              {exercises.map(({ workoutExercise: we, exercise, sets }) => {
+                const done = sets.filter((x) => x.done)
+                const undoneN = sets.length - done.length
+                return (
+                  <li key={we.id} className="ex-row-item day-rec">
+                    <div className="day-rec-main">
+                      <i className="ex-row-dot" style={{ background: BODY_PART_COLORS[exercise.bodyPart] }} aria-hidden="true" />
+                      <span className="day-rec-name">{exercise.name}</span>
+                      <span className="day-rec-sets num">
+                        {done.length > 0 && <span className="day-rec-done">{formatSetsCompact(exercise.logType, done)}</span>}
+                        {undoneN > 0 && <span className="day-rec-undone">+{undoneN} 未完了</span>}
+                        {we.effort !== undefined && <span className="day-rec-effort">きつさ{we.effort}</span>}
+                      </span>
+                    </div>
+                    {we.note && <p className="day-rec-note">{we.note}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+            {(workout.condition !== undefined || workout.satisfaction !== undefined || workout.note) && (
+              <p className="day-rec-foot">
+                {workout.condition !== undefined && <span>調子 {FACES[workout.condition - 1]}</span>}
+                {workout.satisfaction !== undefined && <span>満足度 {workout.satisfaction}</span>}
+                {workout.note && <span className="day-rec-memo">メモ：{workout.note}</span>}
               </p>
             )}
-            {workout.note && <p className="muted">メモ：{workout.note}</p>}
           </CollapsibleCard>
         )
       })}

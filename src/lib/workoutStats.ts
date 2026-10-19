@@ -55,3 +55,19 @@ export function formatSets(logType: LogType, sets: SetValues[]): string {
   }
   return sets.map((s) => formatSet(logType, s)).join(', ')
 }
+
+/** 終わったセットを1行に詰める。例：「60kg × 8・8・7」「60kg×8・62.5kg×6」「10・10・8回」「1:00・0:45」 */
+export function formatSetsCompact(logType: LogType, sets: SetValues[]): string {
+  if (sets.length === 0) return ''
+  const sameWeight = sets.every((s) => (s.weight ?? 0) === (sets[0].weight ?? 0))
+  if (logType === 'weight_reps') {
+    if (sameWeight) return `${sets[0].weight ?? 0}kg × ${sets.map((s) => s.reps ?? 0).join('・')}`
+    return sets.map((s) => `${s.weight ?? 0}kg×${s.reps ?? 0}`).join('・')
+  }
+  if (logType === 'reps' && sameWeight) {
+    const w = sets[0].weight ?? 0
+    const extra = w > 0 ? ` (+${w}kg)` : w < 0 ? ` (補助${-w}kg)` : ''
+    return `${sets.map((s) => s.reps ?? 0).join('・')}回${extra}`
+  }
+  return sets.map((s) => formatSet(logType, s)).join('・')
+}
