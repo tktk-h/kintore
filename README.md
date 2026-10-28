@@ -36,6 +36,6 @@ Vercel で公開しています（`main` への push で自動デプロイ）。
 - Vercel の環境変数
   - `GEMINI_API_KEY`：Google AI Studio の APIキー（チャットやリポジトリには書かない）
   - `COACH_PASSCODE`：合言葉。アプリの設定に同じものを入れる（日本語も使える）
-  - `GEMINI_MODEL`（任意）：既定は `gemini-2.5-flash`
+  - `GEMINI_MODEL`（任意）：既定は `gemini-3.6-flash`（2026-10-28 に各モデルの速さを測って、正式版のFlashでいちばん速かったもの）
   - `GEMINI_THINKING_BUDGET`（任意）：考える量。既定は 1024、`off` で送らない
 - GitHub Pages から引っ越すときは、古いURLの設定画面でバックアップを書き出し、新しいURLの設定画面で読み込んでから、ホーム画面に追加し直す

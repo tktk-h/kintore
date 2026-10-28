@@ -3,7 +3,7 @@
  */
 import { COACH_REPLY_SCHEMA, parseCoachReply, type CoachChatTurn, type CoachReply } from './schema.js'
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash'
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash'
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 

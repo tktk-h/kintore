@@ -167,7 +167,8 @@ describe('POST /api/coach', () => {
     expect(JSON.stringify(sent)).not.toContain(PASSCODE)
   })
 
-  it('考える量を抑えて速く返す（thinkingBudget 1024、GEMINI_THINKING_BUDGET で変えられる）', async () => {
+  it('考える量を抑えて速く返す（2 系は thinkingBudget 1024、GEMINI_THINKING_BUDGET で変えられる）', async () => {
+    env.GEMINI_MODEL = 'gemini-2.5-flash'
     await POST(req())
     expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).generationConfig.thinkingConfig).toEqual({ thinkingBudget: 1024 })
     env.GEMINI_THINKING_BUDGET = 'off'
@@ -274,7 +275,7 @@ describe('POST /api/coach', () => {
   it('答えたモデルをログに残す（キーは出さない）', async () => {
     await POST(req())
     const logged = JSON.stringify((console.log as unknown as ReturnType<typeof vi.fn>).mock.calls)
-    expect(logged).toContain('coach: answered by gemini-2.5-flash')
+    expect(logged).toContain('coach: answered by gemini-3.6-flash')
     expect(logged).not.toContain(API_KEY)
   })
 
@@ -285,8 +286,8 @@ describe('POST /api/coach', () => {
     }))
     await POST(req())
     const logged = JSON.stringify((console.log as unknown as ReturnType<typeof vi.fn>).mock.calls)
-    expect(logged).toMatch(/coach: gemini-2\.5-flash 200 in \d+ms/)
-    expect(logged).toMatch(/coach: answered by gemini-2\.5-flash in \d+ms \(calls 1, prompt 5000, thoughts 800, output 1200\)/)
+    expect(logged).toMatch(/coach: gemini-3\.6-flash 200 in \d+ms/)
+    expect(logged).toMatch(/coach: answered by gemini-3\.6-flash in \d+ms \(calls 1, prompt 5000, thoughts 800, output 1200\)/)
   })
 
   it('関数の実行時間の上限は300秒（Hobby の最大）', () => {
@@ -316,9 +317,9 @@ describe('POST /api/coach', () => {
     expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'low' })
   })
 
-  it('モデルの既定は gemini-2.5-flash', async () => {
+  it('モデルの既定は gemini-3.6-flash', async () => {
     await POST(req())
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/models/gemini-2.5-flash:generateContent')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/models/gemini-3.6-flash:generateContent')
   })
 
   it('キーや合言葉の前後の空白・改行は取り除いて使う', async () => {

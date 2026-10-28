@@ -9,7 +9,7 @@
 | GitHub | https://github.com/tktk-h/kintore （公開リポジトリ） |
 | 公開URL | https://kintore-gold.vercel.app （Vercel・無料のHobbyプラン。`main` に push すると自動で公開） |
 | 技術 | React 19 / TypeScript / Vite / PWA / Dexie（IndexedDB）/ React Router 7 / Vitest。サーバーは Vercel の関数 `api/coach.ts`（Node.js） |
-| AI | Google Gemini API の無料枠。Vercelの環境変数 `GEMINI_API_KEY`・`COACH_PASSCODE`（合言葉）。`GEMINI_MODEL` は未設定（既定の `gemini-2.5-flash` が提供終了のため、使えるFlashモデルを自動で探して使う） |
+| AI | Google Gemini API の無料枠。Vercelの環境変数 `GEMINI_API_KEY`・`COACH_PASSCODE`（合言葉）。`GEMINI_MODEL` は未設定（既定は `gemini-3.6-flash`。使えなくなったら使えるFlashモデルを自動で探して使う） |
 | 利用者 | 本人がiPhoneのホーム画面に追加して使用。記録はiPhoneの中だけに保存 |
 
 ## 進め方のルール（ユーザーの希望）
