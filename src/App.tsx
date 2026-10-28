@@ -5,6 +5,7 @@ import { BodyPage } from './features/body/BodyPage'
 import { CalendarPage } from './features/calendar/CalendarPage'
 import { DayDetailPage } from './features/calendar/DayDetailPage'
 import { CoachPage } from './features/coach/CoachPage'
+import { ProposalPage } from './features/coach/ProposalPage'
 import { ProfilePage } from './features/coach/ProfilePage'
 import { ExerciseEditPage } from './features/exercises/ExerciseEditPage'
 import { HomePage } from './features/home/HomePage'
@@ -22,6 +23,7 @@ export function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="coach" element={<CoachPage />} />
         <Route path="coach/profile" element={<ProfilePage />} />
+        <Route path="coach/proposal/:id" element={<ProposalPage />} />
         {/* 種目の一覧は「メニュー」画面のタブに移した */}
         <Route path="exercises" element={<Navigate to="/routines?tab=exercises" replace />} />
         <Route path="exercises/new" element={<ExerciseEditPage />} />

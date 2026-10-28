@@ -8,14 +8,18 @@ function CurrentPath() {
   return <p data-testid="current-path">{useLocation().pathname}</p>
 }
 
-/** path にページを置いて url を開く。どこへ遷移したかは data-testid="current-path" で確認できる */
-export function renderPage(path: string, url: string, page: ReactNode) {
+/**
+ * path にページを置いて url を開く。どこへ遷移したかは data-testid="current-path" で確認できる。
+ * 移った先の画面も確かめたいときは、その画面を others に渡す（パス → 画面）
+ */
+export function renderPage(path: string, url: string, page: ReactNode, others: Record<string, ReactNode> = {}) {
   return render(
     <ToastProvider>
       <RestTimerProvider>
         <MemoryRouter initialEntries={[url]}>
           <Routes>
             <Route path={path} element={page} />
+            {Object.entries(others).map(([p, el]) => <Route key={p} path={p} element={el} />)}
             <Route path="*" element={<CurrentPath />} />
           </Routes>
         </MemoryRouter>

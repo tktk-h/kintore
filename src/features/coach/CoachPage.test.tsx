@@ -17,6 +17,7 @@ import { resetDb } from '../../test/db'
 import { renderPage } from '../../test/render'
 import { CoachError, type SendToCoach } from './client'
 import { CoachPage } from './CoachPage'
+import { ProposalPage } from './ProposalPage'
 
 const profile: Omit<Profile, 'id' | 'updatedAt'> = {
   goal: 'hypertrophy', experience: 'y1_3', daysPerWeek: 4, minutesPerSession: 60, weekdays: [1, 2, 4, 5],
@@ -69,7 +70,14 @@ async function enabledButton(name: string) {
   return button
 }
 
-const open = (send: SendToCoach) => renderPage('/coach', '/coach', <CoachPage send={send} />)
+const open = (send: SendToCoach) =>
+  renderPage('/coach', '/coach', <CoachPage send={send} />, { '/coach/proposal/:id': <ProposalPage /> })
+
+/** チャットの案の1行を押して、案の画面の中身を返す */
+async function openProposal(name: RegExp = /案1/) {
+  await userEvent.click(await screen.findByRole('link', { name }))
+  return screen.findByRole('region', { name: 'メニュー案' })
+}
 
 describe('CoachPage', () => {
   it('プロフィールがなければ聞き取りへ案内する（戻るボタンはない）', async () => {
@@ -87,7 +95,7 @@ describe('CoachPage', () => {
     expect(screen.getByRole('button', { name: '来週のメニューを作って' })).toBeDisabled()
   })
 
-  it('来週のメニューを頼む → 案のカード → 反映すると予定に入る', async () => {
+  it('来週のメニューを頼む → チャットに案の1行 → 押すと案の画面 → 反映すると予定に入る', async () => {
     await ready()
     const send = vi.fn<SendToCoach>(async () => goodReply())
     open(send)
@@ -95,8 +103,13 @@ describe('CoachPage', () => {
     expect(await screen.findByText(/来週のメニューです/)).toBeInTheDocument()
     expect(send).toHaveBeenCalledTimes(1)
     expect(send.mock.calls[0][0].messages.at(-1)?.text).toBe('来週のメニューを作って')
+    // チャットには大きなカードを出さず、1行だけ
+    expect(screen.queryByRole('region', { name: 'メニュー案' })).toBeNull()
+    const s = skeleton()
+    const link = await screen.findByRole('link', { name: new RegExp(`案1 · ${s.days.length}日 · ${s.days.reduce((n, d) => n + d.slots.length, 0)}種目.*未反映`) })
+    expect(link).toHaveClass('is-current')
 
-    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    const card = await openProposal()
     expect(within(card).getAllByText('上半身・下半身').length).toBeGreaterThan(0)
     const first = skeleton().days[0]
     expect(within(card).getByText(formatDateShort(first.date))).toBeInTheDocument()
@@ -118,7 +131,7 @@ describe('CoachPage', () => {
     await assignRoutineToDate(routine.id, first.date)
     open(vi.fn<SendToCoach>(async () => goodReply()))
     await userEvent.click(await enabledButton('来週のメニューを作って'))
-    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    const card = await openProposal()
     await userEvent.click(within(card).getByRole('button', { name: '反映する' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('listitem')).toHaveTextContent(`${formatDateJa(first.date)}：胸の日`)
@@ -137,7 +150,7 @@ describe('CoachPage', () => {
     }
     await addChatMessage({ role: 'coach', text: '古い案', proposal })
     open(vi.fn())
-    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    const card = await openProposal()
     expect(within(card).getByRole('button', { name: '反映する' })).toBeDisabled()
     expect(within(card).getByText(/すべて過ぎた日/)).toBeInTheDocument()
   })
@@ -152,7 +165,7 @@ describe('CoachPage', () => {
     }
     await addChatMessage({ role: 'coach', text: '案', proposal })
     open(vi.fn())
-    const card = await screen.findByRole('region', { name: 'メニュー案' })
+    const card = await openProposal()
     const pastLabel = formatDateJa(addDays(today, -1))
     expect(within(card).getByText((t) => t.includes(pastLabel) && t.includes('反映しません'))).toBeInTheDocument()
     await userEvent.click(within(card).getByRole('button', { name: '反映する' }))

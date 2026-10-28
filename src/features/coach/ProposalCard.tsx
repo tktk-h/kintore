@@ -1,8 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { CalendarCheck, CalendarDays, Check, TriangleAlert } from 'lucide-react'
+import { CalendarCheck, Check, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { DayGroup } from '../../components/DayGroup'
 import { Dialog } from '../../components/Dialog'
 import { ExerciseRow, ExerciseRows } from '../../components/ExerciseRow'
@@ -16,7 +15,7 @@ import { getPlanForDate } from '../../repo/plans'
 import { ProposalExerciseSheet } from './ProposalExerciseSheet'
 import { daySummary, exerciseLine, volumeText, weightText } from './proposalFormat'
 
-/** チャットのメニュー案カード（設計書「メニュー案カード」） */
+/** メニュー案の中身（設計書「メニュー案カード」）。案の画面に出す。見出しは画面の見出しが兼ねる */
 export function ProposalCard({ message }: { message: ChatMessage }) {
   const proposal = message.proposal!
   const exercises = useLiveQuery(listExercises)
@@ -54,19 +53,7 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
   const muscles = MUSCLES.filter((m) => (proposal.muscleSets[m] ?? 0) > 0)
 
   return (
-    <CollapsibleCard
-      storageKey={`coach.proposal.${message.id}`}
-      label="メニュー案"
-      ariaLabel="メニュー案"
-      className="proposal-card"
-      summary={applied ? '反映済み' : splitLabel}
-      title={
-        <>
-          <CalendarDays aria-hidden="true" />
-          メニュー案
-        </>
-      }
-    >
+    <section className="card stack proposal-card" aria-label="メニュー案">
       <div className="proposal-strip">
         <p className="proposal-split">
           <span>{splitLabel}</span>
@@ -193,7 +180,7 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
           </div>
         </Dialog>
       )}
-    </CollapsibleCard>
+    </section>
   )
 }
 

@@ -133,3 +133,15 @@ body:has(.coach-composer) .timer-bar { bottom: calc(var(--composer-offset) + var
 .form-error { color: var(--danger); font-size: var(--fs-sub); font-weight: 700; }
 /* 一番下へ送るとき、固定の入力欄と下のメニューに隠れないようにする */
 .chat-end { scroll-margin-bottom: calc(var(--composer-offset) + var(--composer-h) + var(--s-3)); }
+
+/* 案の1行（チャットの中）。押すと案の画面を開く */
+.proposal-link { display: flex; align-items: center; gap: var(--s-2); min-height: 44px; max-width: 82%; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--text-2); font-size: var(--fs-sub); font-weight: 700; text-decoration: none; }
+.proposal-link svg { width: 18px; height: 18px; flex: none; }
+.proposal-link-text { min-width: 0; }
+.proposal-link-status { margin-left: auto; padding-left: var(--s-2); color: var(--muted); font-size: var(--fs-caption); }
+/* まだ反映していない一番新しい案 */
+.proposal-link.is-current { border-color: var(--accent); color: var(--accent-hi); }
+/* 案の画面の切り替え */
+.proposal-page { display: flex; flex-direction: column; gap: var(--s-3); }
+.proposal-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: 4px; border-radius: var(--r-md); background: var(--surface); font-weight: 700; }
+.proposal-switch .is-disabled { opacity: 0.3; }

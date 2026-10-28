@@ -10,7 +10,8 @@ import { getProfile } from '../../repo/profile'
 import { getSettings } from '../../repo/settings'
 import { CoachError, COACH_ERROR_MESSAGES, sendToCoach, type CoachErrorKind, type SendToCoach } from './client'
 import { askCoach } from './coachService'
-import { ProposalCard } from './ProposalCard'
+import { ProposalLink } from './ProposalLink'
+import { proposalEntries } from './proposalList'
 
 /** よく使う依頼のボタン */
 export const QUICK_ASKS: { text: string; intent: CoachIntent; skipToday?: boolean }[] = [
@@ -60,6 +61,9 @@ export function CoachPage({ send = sendToCoach }: Props) {
       root.style.removeProperty('--composer-h')
     }
   }, [])
+
+  const entries = proposalEntries(messages ?? [])
+  const latestProposal = entries.at(-1)?.message.id
 
   const loaded = profile !== undefined && passcode !== undefined
   const ready = !!profile && !!passcode
@@ -138,7 +142,9 @@ export function CoachPage({ send = sendToCoach }: Props) {
         {messages?.map((m) => (
           <li key={m.id} className={`chat-item ${m.role}`}>
             {m.text && <p className={`bubble ${m.role}`}>{m.text}</p>}
-            {m.role === 'coach' && m.proposal && <ProposalCard message={m} />}
+            {m.role === 'coach' && m.proposal && (
+              <ProposalLink entry={entries.find((e) => e.message.id === m.id)!} latest={m.id === latestProposal} />
+            )}
           </li>
         ))}
         {sending && (
