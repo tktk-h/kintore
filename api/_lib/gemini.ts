@@ -38,6 +38,7 @@ export const DEFAULT_THINKING_BUDGET = 1024
 
 interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[]
+  usageMetadata?: { promptTokenCount?: number; thoughtsTokenCount?: number; candidatesTokenCount?: number }
 }
 
 interface ModelList {
@@ -106,6 +107,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   const { apiKey } = args
   const delay = args.retryDelayMs ?? 2000
+  const started = Date.now()
+  const callsBefore = generateCalls
   let model = resolvedModels.get(args.model) ?? args.model
   let res = await generate(args, model)
 
@@ -165,8 +168,9 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   if (!text) throw new GeminiError('invalid', undefined, 'empty reply')
   try {
     const reply = parseCoachReply(text)
-    // どのモデルが答えたかを残す（上限で切り替えたときの確認用。キー・本文は出さない）
-    console.log(`coach: answered by ${model}`)
+    // どのモデルが、何秒・何回の呼び出し・何トークンで答えたかを残す（切り替えと遅さの確認用。キー・本文は出さない）
+    const u = data.usageMetadata ?? {}
+    console.log(`coach: answered by ${model} in ${Date.now() - started}ms (calls ${generateCalls - callsBefore}, prompt ${u.promptTokenCount ?? '?'}, thoughts ${u.thoughtsTokenCount ?? 0}, output ${u.candidatesTokenCount ?? '?'})`)
     return reply
   } catch {
     throw new GeminiError('invalid', undefined, 'reply does not match the schema')
@@ -181,6 +185,9 @@ export function thinkingConfigFor(model: string, budget: number | undefined): Re
   return /gemini-[12][.-]/.test(model) ? { thinkingBudget: budget } : { thinkingLevel: 'low' }
 }
 
+/** generateContent を送った回数（ログで1回の依頼に何回送ったかを数える） */
+let generateCalls = 0
+
 /** generateContent を送る。thinkingConfig に対応していないモデルで 400 なら、外して1回だけ送り直す */
 async function generate({ apiKey, system, context, messages, thinkingBudget }: CallGeminiArgs, model: string): Promise<Response> {
   const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`
@@ -194,8 +201,13 @@ async function generate({ apiKey, system, context, messages, thinkingBudget }: C
       ...(withThinking ? { thinkingConfig: thinkingConfigFor(model, thinkingBudget) } : {}),
     },
   })
-  const post = (withThinking: boolean) =>
-    send(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(makeBody(withThinking)) })
+  const post = async (withThinking: boolean) => {
+    generateCalls++
+    const started = Date.now()
+    const res = await send(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(makeBody(withThinking)) })
+    console.log(`coach: ${model} ${res.status} in ${Date.now() - started}ms`)
+    return res
+  }
   const withThinking = thinkingBudget !== undefined
   const res = await post(withThinking)
   return res.status === 400 && withThinking ? post(false) : res

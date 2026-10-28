@@ -278,6 +278,17 @@ describe('POST /api/coach', () => {
     expect(logged).not.toContain(API_KEY)
   })
 
+  it('かかった時間とトークン数をログに残す（遅さの原因を調べるため）', async () => {
+    fetchMock.mockResolvedValueOnce(gemini(200, {
+      candidates: [{ content: { parts: [{ text: JSON.stringify(reply) }] } }],
+      usageMetadata: { promptTokenCount: 5000, thoughtsTokenCount: 800, candidatesTokenCount: 1200 },
+    }))
+    await POST(req())
+    const logged = JSON.stringify((console.log as unknown as ReturnType<typeof vi.fn>).mock.calls)
+    expect(logged).toMatch(/coach: gemini-2\.5-flash 200 in \d+ms/)
+    expect(logged).toMatch(/coach: answered by gemini-2\.5-flash in \d+ms \(calls 1, prompt 5000, thoughts 800, output 1200\)/)
+  })
+
   it('関数の実行時間の上限は300秒（Hobby の最大）', () => {
     expect(config).toEqual({ maxDuration: 300 })
   })
