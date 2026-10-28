@@ -221,6 +221,55 @@ describe('POST /api/coach', () => {
     })
   })
 
+  describe('返事が遅い（時間切れ）とき', () => {
+    const list = () => gemini(200, { models: [
+      { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.7-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.6-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-3.5-flash', supportedGenerationMethods: ['generateContent'] },
+    ] })
+    /** 中断されるまで返事をしない（Gemini が混んで順番待ちになっている状態） */
+    const hang = (_url: unknown, init?: RequestInit) => new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal!.reason))
+    })
+    const generatedModels = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.includes(':generateContent'))
+      .map((u) => /models\/([^:]+):/.exec(u)![1])
+    beforeEach(() => {
+      env.GEMINI_TIMEOUT_MS = '20'
+      fetchMock.mockReset()
+    })
+    afterEach(() => {
+      delete env.GEMINI_TIMEOUT_MS
+    })
+
+    it('時間内に返事がなければ、次の Flash モデルに切り替え、次からはそれを使う', async () => {
+      env.GEMINI_MODEL = 'gemini-3.7-flash'
+      fetchMock.mockImplementationOnce(hang).mockResolvedValueOnce(list()).mockResolvedValueOnce(geminiOk()).mockResolvedValueOnce(geminiOk())
+      expect((await POST(req())).status).toBe(200)
+      expect((await POST(req())).status).toBe(200)
+      expect(generatedModels()).toEqual(['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.6-flash'])
+      const logged = JSON.stringify((console.error as unknown as ReturnType<typeof vi.fn>).mock.calls)
+      expect(logged).toContain('coach: model gemini-3.7-flash timed out after 20ms, trying gemini-3.6-flash')
+    })
+
+    it('切り替えは2回まで。全部時間切れなら 503「AIが混み合っています…」', async () => {
+      env.GEMINI_MODEL = 'gemini-3.8-flash'
+      fetchMock.mockImplementation(async (url: unknown, init?: RequestInit) => (String(url).includes('/models?') ? list() : hang(url, init)))
+      const res = await POST(req())
+      expect(res.status).toBe(503)
+      expect(await expectNoSecrets(res)).toEqual({ error: 'AIが混み合っています。少し時間をおいて試してください' })
+      expect(generatedModels()).toEqual(['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash'])
+    })
+
+    it('待つ時間の既定は30秒', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout')
+      fetchMock.mockResolvedValueOnce(geminiOk())
+      delete env.GEMINI_TIMEOUT_MS
+      await POST(req())
+      expect(timeout).toHaveBeenCalledWith(30_000)
+    })
+  })
+
   describe('上限（429）のとき', () => {
     // モデルごとに無料枠の上限が別なので、ほかの Flash モデルで試す（lite は最後の手段）
     const list = () => gemini(200, { models: [

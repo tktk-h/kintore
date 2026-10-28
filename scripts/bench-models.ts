@@ -34,11 +34,11 @@ const request = buildCoachRequest({
 
 const seconds = (started: number) => ((Date.now() - started) / 1000).toFixed(1).padStart(6)
 
-async function measure(apiKey: string, model: string, timeout: Promise<'timeout'>): Promise<string> {
+async function measure(apiKey: string, model: string): Promise<string> {
   const started = Date.now()
   try {
-    const res = await Promise.race([generate({ apiKey, model, thinkingBudget: DEFAULT_THINKING_BUDGET, ...request }, model), timeout])
-    if (res === 'timeout') return `${seconds(started)}s  時間切れ`
+    const res = await generate({ apiKey, model, thinkingBudget: DEFAULT_THINKING_BUDGET, timeoutMs: TIMEOUT_MS, ...request }, model)
+    if (res.status === 408) return `${seconds(started)}s  時間切れ`
     if (!res.ok) return `${seconds(started)}s  失敗 ${res.status}`
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] } }[]
@@ -73,10 +73,7 @@ async function main(apiKey: string | undefined): Promise<number> {
   // generate がモデルごとに出すログは、表と重なるので出さない
   console.log = () => {}
   console.info(`${models.length} 個のモデルに同時に送ります（最大 ${TIMEOUT_MS / 1000} 秒待ちます）…`)
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<'timeout'>((resolve) => { timer = setTimeout(() => resolve('timeout'), TIMEOUT_MS) })
-  const results = await Promise.all(models.map(async (m) => [m, await measure(apiKey, m, timeout)] as const))
-  clearTimeout(timer)
+  const results = await Promise.all(models.map(async (m) => [m, await measure(apiKey, m)] as const))
   for (const [m, line] of results) console.info(`${m.padEnd(28)} ${line}`)
   return 0
 }

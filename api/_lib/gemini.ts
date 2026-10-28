@@ -31,7 +31,18 @@ export interface CallGeminiArgs {
   thinkingBudget?: number
   /** 混み合っているときに送り直すまで待つ時間（ミリ秒）。既定 2000 */
   retryDelayMs?: number
+  /** 1回の返事を待つ時間（ミリ秒）。過ぎたらほかの Flash モデルに切り替える。既定 30000 */
+  timeoutMs?: number
 }
+
+/**
+ * 返事を待つ既定の時間。空いていれば Flash は10秒ほどで返すが、混むと順番待ちで数分かかることがある
+ * （2026-10-28 の測定：3.6-flash 8.5秒、3.8-flash 31〜241秒）
+ */
+export const DEFAULT_TIMEOUT_MS = 30_000
+
+/** 時間切れで別のモデルに切り替える回数の上限（Vercel 関数の実行時間に収めるため） */
+const MAX_TIMEOUT_SWITCHES = 2
 
 /** 既定の考える量。メニューは骨組みが決まっているので多くは要らない */
 export const DEFAULT_THINKING_BUDGET = 1024
@@ -102,6 +113,10 @@ const resolvedModels = new Map<string, string>()
 /** 混み合っている・一時的な不調のステータス（時間をおけば通ることが多い） */
 const isBusy = (status: number) => status === 503 || status === 504
 
+/** 時間切れ。Gemini からではなく、待つのをやめたときに send が作る */
+const TIMED_OUT = 408
+const isTimedOut = (status: number) => status === TIMED_OUT
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
@@ -121,6 +136,20 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
       model = found
       res = await generate(args, model)
     }
+  }
+
+  // 時間内に返事がなければ（混んで順番待ちになっている）、次の世代から順にほかの Flash モデルで試す（2回まで）。
+  // 通ったモデルは覚えておき、同じインスタンスの次の呼び出しでは最初からそれを使う
+  if (isTimedOut(res.status)) {
+    const list = await listFlashModels(apiKey)
+    const candidates = [...new Set([...list.slice(list.indexOf(model) + 1), ...list])].filter((m) => m !== model)
+    for (const next of candidates.slice(0, MAX_TIMEOUT_SWITCHES)) {
+      console.error(`coach: model ${model} timed out after ${args.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms, trying ${next}`)
+      model = next
+      res = await generate(args, model)
+      if (!isTimedOut(res.status)) break
+    }
+    if (res.ok) resolvedModels.set(args.model, model)
   }
 
   // 混み合っているときは、少し待って同じモデルでもう一度、それでもだめなら1つ前の世代の Flash モデルで試す
@@ -155,6 +184,7 @@ export async function callGemini(args: CallGeminiArgs): Promise<CoachReply> {
   }
 
   if (isBusy(res.status)) throw new GeminiError('busy', res.status, await errorDetail(res, apiKey))
+  if (isTimedOut(res.status)) throw new GeminiError('busy', undefined, 'timed out')
   if (res.status === 429) throw new GeminiError('rate_limited', 429, await errorDetail(res, apiKey))
   if (!res.ok) throw new GeminiError('upstream', res.status, await errorDetail(res, apiKey))
 
@@ -189,7 +219,7 @@ export function thinkingConfigFor(model: string, budget: number | undefined): Re
 let generateCalls = 0
 
 /** generateContent を送る。thinkingConfig に対応していないモデルで 400 なら、外して1回だけ送り直す */
-export async function generate({ apiKey, system, context, messages, thinkingBudget }: CallGeminiArgs, model: string): Promise<Response> {
+export async function generate({ apiKey, system, context, messages, thinkingBudget, timeoutMs = DEFAULT_TIMEOUT_MS }: CallGeminiArgs, model: string): Promise<Response> {
   const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`
   const makeBody = (withThinking: boolean) => ({
     systemInstruction: { parts: [{ text: system }, { text: `参考情報（JSON）：\n${context}` }] },
@@ -204,7 +234,10 @@ export async function generate({ apiKey, system, context, messages, thinkingBudg
   const post = async (withThinking: boolean) => {
     generateCalls++
     const started = Date.now()
-    const res = await send(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(makeBody(withThinking)) })
+    const res = await send(url, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey }, body: JSON.stringify(makeBody(withThinking)),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
     console.log(`coach: ${model} ${res.status} in ${Date.now() - started}ms`)
     return res
   }
@@ -213,12 +246,16 @@ export async function generate({ apiKey, system, context, messages, thinkingBudg
   return res.status === 400 && withThinking ? post(false) : res
 }
 
-/** fetch の失敗（通信・ヘッダーの形など）は、種類だけを持った GeminiError にする（メッセージにはキーが入りうる） */
+/**
+ * fetch の失敗（通信・ヘッダーの形など）は、種類だけを持った GeminiError にする（メッセージにはキーが入りうる）。
+ * 待つ時間を過ぎたときは、切り替えの判断ができるよう 408 のレスポンスにする
+ */
 async function send(url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init)
   } catch (e) {
-    const name = e instanceof Error ? e.name : typeof e
+    const name = e instanceof Error || e instanceof DOMException ? e.name : typeof e
+    if (name === 'TimeoutError') return new Response(null, { status: TIMED_OUT })
     throw new GeminiError('upstream', undefined, `fetch failed (${name})`)
   }
 }

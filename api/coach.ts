@@ -18,6 +18,12 @@ function retryDelayMs(): number | undefined {
   return process.env.GEMINI_RETRY_DELAY_MS && Number.isFinite(n) && n >= 0 ? n : undefined
 }
 
+/** GEMINI_TIMEOUT_MS：返事を待つ時間（ミリ秒）。過ぎたらほかのモデルに切り替える。なければ既定 */
+function timeoutMs(): number | undefined {
+  const n = Number(process.env.GEMINI_TIMEOUT_MS?.trim())
+  return process.env.GEMINI_TIMEOUT_MS && Number.isFinite(n) && n > 0 ? n : undefined
+}
+
 /** GEMINI_THINKING_BUDGET：数（0以上）ならその値、'off' なら送らない、なければ既定 */
 function thinkingBudget(): number | undefined {
   const raw = process.env.GEMINI_THINKING_BUDGET?.trim()
@@ -94,7 +100,7 @@ export async function handleCoach(request: Request): Promise<Response> {
 
   try {
     const reply = await callGemini({
-      apiKey, model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), retryDelayMs: retryDelayMs(), ...req,
+      apiKey, model: process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL, thinkingBudget: thinkingBudget(), retryDelayMs: retryDelayMs(), timeoutMs: timeoutMs(), ...req,
     })
     return Response.json(reply)
   } catch (e) {
