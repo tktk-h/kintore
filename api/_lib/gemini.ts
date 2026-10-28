@@ -189,7 +189,7 @@ export function thinkingConfigFor(model: string, budget: number | undefined): Re
 let generateCalls = 0
 
 /** generateContent を送る。thinkingConfig に対応していないモデルで 400 なら、外して1回だけ送り直す */
-async function generate({ apiKey, system, context, messages, thinkingBudget }: CallGeminiArgs, model: string): Promise<Response> {
+export async function generate({ apiKey, system, context, messages, thinkingBudget }: CallGeminiArgs, model: string): Promise<Response> {
   const url = `${API_BASE}/models/${encodeURIComponent(model)}:generateContent`
   const makeBody = (withThinking: boolean) => ({
     systemInstruction: { parts: [{ text: system }, { text: `参考情報（JSON）：\n${context}` }] },
@@ -224,7 +224,7 @@ async function send(url: string, init: RequestInit): Promise<Response> {
 }
 
 /** 使えるモデルの一覧。取れなければ空 */
-async function listModels(apiKey: string): Promise<ModelList> {
+export async function listModels(apiKey: string): Promise<ModelList> {
   const res = await send(`${API_BASE}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } })
   if (!res.ok) return {}
   try {
