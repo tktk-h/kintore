@@ -208,6 +208,7 @@ describe('CoachPage', () => {
     open(send)
     await userEvent.click(await enabledButton('今日できなかった'))
     expect(await screen.findByText('考え中…')).toBeInTheDocument()
+    expect(screen.getByText('10秒ほどかかります。画面はこのままでお待ちください')).toBeInTheDocument()
     await waitFor(() => expect(send).toHaveBeenCalled())
     expect(screen.getByRole('button', { name: '今週を見直して' })).toBeDisabled()
     await act(async () => resolve({ message: '了解です' }))

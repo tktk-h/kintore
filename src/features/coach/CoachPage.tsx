@@ -147,7 +147,7 @@ export function CoachPage({ send = sendToCoach }: Props) {
               <span className="live-dot" aria-hidden="true" />
               考え中…
             </p>
-            <p className="muted">メニュー作りは1〜2分かかることがあります。画面はこのままでお待ちください</p>
+            <p className="muted">10秒ほどかかります。画面はこのままでお待ちください</p>
           </li>
         )}
       </ol>
