@@ -60,6 +60,11 @@ async function main(apiKey: string | undefined): Promise<number> {
     console.error('GEMINI_API_KEY を環境変数に入れてから実行してください')
     return 1
   }
+  // 通信のヘッダーには半角しか入らない（全角が混ざると fetch が TypeError で落ちる）
+  if (!/^[\x21-\x7e]+$/.test(apiKey)) {
+    console.error('GEMINI_API_KEY に日本語や全角の文字が入っています。半角のキーだけを入れ直してください')
+    return 1
+  }
   const models = rateLimitFallbacks(await listModels(apiKey))
   if (models.length === 0) {
     console.error('使えるモデルが見つかりませんでした（キーが違う可能性があります）')
