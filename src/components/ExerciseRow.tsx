@@ -11,11 +11,19 @@ export interface ExerciseRowProps {
   color?: string
   /** 読み上げ名（省略すると名前・量・重さ） */
   ariaLabel?: string
+  /** 前の案との違い：印（「新」「入れ替え」）と、変わった量・重さの前の値 */
+  change?: RowChange
   onClick: () => void
 }
 
+export interface RowChange {
+  badge?: string
+  volumeFrom?: string
+  weightFrom?: string
+}
+
 /** 1行で見渡せる種目の行（押すと詳細）。ExerciseRows の中に並べる */
-export function ExerciseRow({ name, volume, weight, color, ariaLabel, onClick }: ExerciseRowProps) {
+export function ExerciseRow({ name, volume, weight, color, ariaLabel, change, onClick }: ExerciseRowProps) {
   return (
     <li className="ex-row-item">
       <button
@@ -26,8 +34,17 @@ export function ExerciseRow({ name, volume, weight, color, ariaLabel, onClick }:
       >
         {color && <i className="ex-row-dot" style={{ background: color }} aria-hidden="true" />}
         <span className="ex-row-name">{name}</span>
-        <span className="ex-row-volume num">{volume}</span>
-        {weight && <span className="ex-row-weight num">{weight}</span>}
+        {change?.badge && <span className="ex-row-badge">{change.badge}</span>}
+        <span className={`ex-row-volume num ${change?.volumeFrom ? 'is-changed' : ''}`.trim()}>
+          {volume}
+          {change?.volumeFrom && <small className="ex-row-from">←{change.volumeFrom}</small>}
+        </span>
+        {weight && (
+          <span className={`ex-row-weight num ${change?.weightFrom ? 'is-changed' : ''}`.trim()}>
+            {weight}
+            {change?.weightFrom && <small className="ex-row-from">←{change.weightFrom}</small>}
+          </span>
+        )}
       </button>
     </li>
   )

@@ -145,3 +145,9 @@ body:has(.coach-composer) .timer-bar { bottom: calc(var(--composer-offset) + var
 .proposal-page { display: flex; flex-direction: column; gap: var(--s-3); }
 .proposal-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: 4px; border-radius: var(--r-md); background: var(--surface); font-weight: 700; }
 .proposal-switch .is-disabled { opacity: 0.3; }
+/* 前の案との違い：変わった所はオレンジ、前の値は小さく薄く、外した種目は取り消し線 */
+.ex-row .is-changed { color: var(--accent-hi); }
+.ex-row-from { margin-left: 4px; color: var(--muted); font-size: var(--fs-caption); font-weight: 600; }
+.ex-row-badge { flex: none; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-hi); font-size: var(--fs-caption); font-weight: 800; }
+.proposal-legend { color: var(--muted); font-size: var(--fs-caption); }
+.proposal-removed { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: var(--fs-caption); text-decoration: line-through; }

@@ -41,7 +41,7 @@ export function ProposalPage() {
               <span className="icon-btn is-disabled" aria-hidden="true"><ChevronRight /></span>
             )}
           </nav>
-          <ProposalCard key={entry.message.id} message={entry.message} />
+          <ProposalCard key={entry.message.id} message={entry.message} prevNo={entry.no > 1 ? entry.no - 1 : undefined} diff={entry.diff} />
         </>
       )}
     </div>

@@ -4,19 +4,29 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { DayGroup } from '../../components/DayGroup'
 import { Dialog } from '../../components/Dialog'
-import { ExerciseRow, ExerciseRows } from '../../components/ExerciseRow'
+import { ExerciseRow, ExerciseRows, type RowChange } from '../../components/ExerciseRow'
 import { useSafeAction, useToast } from '../../components/Toast'
+import type { ExerciseChange, ProposalDiff } from '../../coach/diff'
 import { SPLIT_LABELS } from '../../coach/split'
-import { BODY_PART_COLORS, BODY_PART_LABELS, MUSCLE_LABELS, MUSCLES, type ChatMessage, type PlannedWorkout } from '../../db/types'
+import type { ProposalExercise } from '../../coach/types'
+import { BODY_PART_COLORS, BODY_PART_LABELS, MUSCLE_LABELS, MUSCLES, type ChatMessage, type Exercise, type PlannedWorkout } from '../../db/types'
 import { formatDateJa, formatDateShort, todayKey } from '../../lib/dates'
 import { ALL_PAST_MESSAGE, applicableDays, applyProposal } from '../../repo/applyProposal'
 import { listExercises } from '../../repo/exercises'
 import { getPlanForDate } from '../../repo/plans'
 import { ProposalExerciseSheet } from './ProposalExerciseSheet'
-import { daySummary, exerciseLine, volumeText, weightText } from './proposalFormat'
+import { daySummary, formatRest, volumeText, weightText } from './proposalFormat'
+
+interface Props {
+  message: ChatMessage
+  /** 比べる前の案の番号（案1なら undefined）。diff がなければ対象の週が違って比べていない */
+  prevNo?: number
+  /** 前の案との違い（設計書「2. 案の画面」の前の案との違い） */
+  diff?: ProposalDiff
+}
 
 /** メニュー案の中身（設計書「メニュー案カード」）。案の画面に出す。見出しは画面の見出しが兼ねる */
-export function ProposalCard({ message }: { message: ChatMessage }) {
+export function ProposalCard({ message, prevNo, diff }: Props) {
   const proposal = message.proposal!
   const exercises = useLiveQuery(listExercises)
   const byId = new Map((exercises ?? []).map((e) => [e.id, e]))
@@ -50,10 +60,14 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
     else await apply()
   }
 
+  const nameOf = (id: string) => (exercises === undefined ? '' : (byId.get(id)?.name ?? '（見つからない種目）'))
   const muscles = MUSCLES.filter((m) => (proposal.muscleSets[m] ?? 0) > 0)
 
   return (
     <section className="card stack proposal-card" aria-label="メニュー案">
+      {prevNo !== undefined && (
+        <p className="proposal-legend">{diff ? `オレンジ＝案${prevNo}から変わった所` : '前の案と対象の週が違うので比べていません'}</p>
+      )}
       <div className="proposal-strip">
         <p className="proposal-split">
           <span>{splitLabel}</span>
@@ -89,7 +103,8 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
               <ExerciseRows>
                 {d.exercises.map((x, xi) => {
                   const ex = byId.get(x.exerciseId)
-                  const name = exercises === undefined ? '' : (ex?.name ?? '（見つからない種目）')
+                  const name = nameOf(x.exerciseId)
+                  const change = rowChange(diff?.days[d.date]?.[xi], ex, nameOf)
                   return (
                     <ExerciseRow
                       key={`${x.slot}-${xi}`}
@@ -97,17 +112,31 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
                       volume={volumeText(x, ex)}
                       weight={weightText(x, ex)}
                       color={ex && BODY_PART_COLORS[ex.bodyPart]}
-                      ariaLabel={`${name} ${exerciseLine(x, ex)}`}
+                      ariaLabel={rowLabel(name, x, ex, change)}
+                      change={change}
                       onClick={() => setDetail({ day: di, ex: xi })}
                     />
                   )
                 })}
               </ExerciseRows>
+              {diff?.removed[d.date] && <RemovedList items={diff.removed[d.date]} nameOf={nameOf} byId={byId} />}
               {d.note && <p className="muted proposal-note">{d.note}</p>}
             </DayGroup>
           )
         })}
       </div>
+      {diff && diff.removedDays.length > 0 && (
+        <div className="proposal-removed-days">
+          <h3 className="proposal-sub">外した日</h3>
+          <ul className="proposal-removed" aria-label="外した日">
+            {diff.removedDays.map((date) => (
+              <li key={date}>
+                <span className="num">{formatDateJa(date)}</span>：{(diff.removed[date] ?? []).map((x) => nameOf(x.exerciseId)).join('・')}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {proposal.reasons && <Reasons text={proposal.reasons} />}
       {proposal.issues.length > 0 && (
         <div className="proposal-issues">
@@ -181,6 +210,41 @@ export function ProposalCard({ message }: { message: ChatMessage }) {
         </Dialog>
       )}
     </section>
+  )
+}
+
+type Change = RowChange & { label?: string }
+
+/** 前の案との違いを、行に出す印と前の値にする */
+function rowChange(c: ExerciseChange | undefined, ex: Exercise | undefined, nameOf: (id: string) => string): Change | undefined {
+  if (!c || c.kind === 'same') return undefined
+  if (c.kind === 'new') return { badge: '新', label: '新' }
+  if (c.kind === 'swapped') return { badge: '入れ替え', label: `入れ替え（前 ${nameOf(c.prev.exerciseId)}）` }
+  return {
+    volumeFrom: c.fields.includes('reps') || c.fields.includes('sets') ? volumeText(c.prev, ex) : undefined,
+    weightFrom: c.fields.includes('weight') ? (weightText(c.prev, ex) ?? 'なし') : undefined,
+  }
+}
+
+/** 行の読み上げ名：「ベンチプレス 10×3 前 8×3 ・ 60kg ・ 休憩2分30秒 入れ替え（前 …）」 */
+function rowLabel(name: string, x: ProposalExercise, ex: Exercise | undefined, c?: Change): string {
+  const parts = [`${volumeText(x, ex)}${c?.volumeFrom ? ` 前 ${c.volumeFrom}` : ''}`]
+  const w = weightText(x, ex)
+  if (w) parts.push(`${w}${c?.weightFrom ? ` 前 ${c.weightFrom}` : ''}`)
+  parts.push(`休憩${formatRest(x.restSec)}`)
+  return [name, parts.join(' ・ '), c?.label].filter(Boolean).join(' ')
+}
+
+/** その日の外した種目（薄く、取り消し線で並べる） */
+function RemovedList({ items, nameOf, byId }: { items: ProposalExercise[]; nameOf: (id: string) => string; byId: Map<string, Exercise> }) {
+  return (
+    <ul className="proposal-removed" aria-label="外した種目">
+      {items.map((x, i) => (
+        <li key={`${x.slot}-${i}`}>
+          {nameOf(x.exerciseId)} <span className="num">{volumeText(x, byId.get(x.exerciseId))}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
